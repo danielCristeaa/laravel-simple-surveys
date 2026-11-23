@@ -7,6 +7,7 @@ namespace DanielCristea\SimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -18,6 +19,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $package
             ->name('simple-surveys')
             ->hasConfigFile('simple-surveys')
+            ->hasViews('simple-surveys')
             ->hasMigration('create_simple_survey_responses_table');
     }
 
@@ -31,6 +33,8 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        Blade::componentNamespace('DanielCristea\\SimpleSurveys\\View\\Components', 'simple-surveys');
+
         $this->registerCustomerRoutes();
     }
 
