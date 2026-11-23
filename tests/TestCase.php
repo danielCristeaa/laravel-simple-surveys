@@ -60,7 +60,7 @@ abstract class TestCase extends Orchestra
             $table->timestamps();
         });
 
-        $migration = require __DIR__.'/../database/migrations/create_simple_survey_responses_table.php.stub';
+        $migration = require __DIR__.'/../database/migrations/create_simple_surveys_tables.php.stub';
         $migration->up();
     }
 }

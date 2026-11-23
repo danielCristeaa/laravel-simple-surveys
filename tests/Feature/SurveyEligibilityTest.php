@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\Tests\Support\Order;
@@ -42,9 +44,32 @@ it('excludes surveys already completed or dismissed by the user', function (): v
     SimpleSurveys::register(Survey::make('second')->priority(5));
     SimpleSurveys::register(Survey::make('third')->priority(1));
 
-    SurveyResponse::factory()->forSurvey('first')->forRespondent($user)->completed()->create();
-    SurveyResponse::factory()->forSurvey('second')->forRespondent($user)->dismissed()->create();
-    SurveyResponse::factory()->forSurvey('third')->forRespondent($otherUser)->completed()->create();
+    SimpleSurveys::sync();
+
+    $firstRecord = SurveyRecord::query()->byKey('first')->firstOrFail();
+    $secondRecord = SurveyRecord::query()->byKey('second')->firstOrFail();
+    $thirdRecord = SurveyRecord::query()->byKey('third')->firstOrFail();
+
+    SurveyResponse::query()->create([
+        'survey_id' => $firstRecord->id,
+        'respondent_type' => $user->getMorphClass(),
+        'respondent_id' => $user->id,
+        'completed_at' => now(),
+    ]);
+
+    SurveyDismissal::query()->create([
+        'survey_id' => $secondRecord->id,
+        'respondent_type' => $user->getMorphClass(),
+        'respondent_id' => $user->id,
+        'dismissed_at' => now(),
+    ]);
+
+    SurveyResponse::query()->create([
+        'survey_id' => $thirdRecord->id,
+        'respondent_type' => $otherUser->getMorphClass(),
+        'respondent_id' => $otherUser->id,
+        'completed_at' => now(),
+    ]);
 
     expect(SimpleSurveys::forUser($user)?->key())->toBe('third')
         ->and(SimpleSurveys::eligibleFor($user)->map->key()->all())->toBe(['third'])

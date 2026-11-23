@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Services;
 
 use Carbon\CarbonInterface;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -30,7 +32,7 @@ final class SurveyEligibilityResolver
             return null;
         }
 
-        $excludedKeys = $this->respondedSurveyKeys($user, $activeSurveys->keys()->all());
+        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all());
 
         foreach ($activeSurveys as $survey) {
             if (in_array($survey->key(), $excludedKeys, true)) {
@@ -60,7 +62,7 @@ final class SurveyEligibilityResolver
             return new Collection;
         }
 
-        $excludedKeys = $this->respondedSurveyKeys($user, $activeSurveys->keys()->all());
+        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all());
 
         /** @var array<int, Survey> $eligible */
         $eligible = [];
@@ -88,12 +90,9 @@ final class SurveyEligibilityResolver
             return false;
         }
 
-        $hasResponded = SurveyResponse::query()
-            ->forSurvey($survey->key())
-            ->forRespondent($user)
-            ->exists();
+        $excludedKeys = $this->excludedSurveyKeys($user, [$survey->key()]);
 
-        if ($hasResponded) {
+        if (in_array($survey->key(), $excludedKeys, true)) {
             return false;
         }
 
@@ -104,16 +103,45 @@ final class SurveyEligibilityResolver
      * @param  array<int, string>  $surveyKeys
      * @return array<int, string>
      */
-    private function respondedSurveyKeys(Model $user, array $surveyKeys): array
+    private function excludedSurveyKeys(Model $user, array $surveyKeys): array
     {
-        /** @var array<int, string> $keys */
-        $keys = SurveyResponse::query()
-            ->forRespondent($user)
-            ->whereIn('survey_key', $surveyKeys)
-            ->pluck('survey_key')
+        /** @var array<int, string> $recordMap */
+        $recordMap = SurveyRecord::query()
+            ->whereIn('key', $surveyKeys)
+            ->pluck('key', 'id')
             ->all();
 
-        return $keys;
+        if ($recordMap === []) {
+            return [];
+        }
+
+        $recordIds = array_keys($recordMap);
+
+        /** @var array<int, int> $respondedIds */
+        $respondedIds = SurveyResponse::query()
+            ->forRespondent($user)
+            ->whereIn('survey_id', $recordIds)
+            ->pluck('survey_id')
+            ->all();
+
+        /** @var array<int, int> $dismissedIds */
+        $dismissedIds = SurveyDismissal::query()
+            ->forRespondent($user)
+            ->whereIn('survey_id', $recordIds)
+            ->pluck('survey_id')
+            ->all();
+
+        $excludedIds = array_unique([...$respondedIds, ...$dismissedIds]);
+
+        $excludedKeys = [];
+
+        foreach ($excludedIds as $id) {
+            if (isset($recordMap[$id])) {
+                $excludedKeys[] = $recordMap[$id];
+            }
+        }
+
+        return $excludedKeys;
     }
 
     private function matchesTarget(Survey $survey, Model&Authenticatable $user): bool

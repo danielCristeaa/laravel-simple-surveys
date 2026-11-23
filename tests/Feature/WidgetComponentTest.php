@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
@@ -92,7 +93,15 @@ it('supports specific survey attribute, bottom-left position, and non-dismissibl
         ->not->toContain('aria-label="Dismiss survey"')
         ->not->toContain("Don't show again");
 
-    SurveyResponse::factory()->forSurvey('specific-one')->forRespondent($user)->completed()->create();
+    SimpleSurveys::sync();
+    $record = SurveyRecord::query()->byKey('specific-one')->firstOrFail();
+
+    SurveyResponse::query()->create([
+        'survey_id' => $record->id,
+        'respondent_type' => $user->getMorphClass(),
+        'respondent_id' => $user->id,
+        'completed_at' => now(),
+    ]);
 
     expect(trim(Blade::render('<x-simple-surveys::widget survey="specific-one" />')))->toBe('');
 });

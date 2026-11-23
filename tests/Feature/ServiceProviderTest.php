@@ -6,7 +6,13 @@ use DanielCristea\SimpleSurveys\Facades\SimpleSurveys as SimpleSurveysFacade;
 use DanielCristea\SimpleSurveys\SimpleSurveys;
 
 it('loads default package configuration', function (): void {
-    expect(config('simple-surveys.table_name'))->toBe('simple_survey_responses')
+    expect(config('simple-surveys.tables'))->toBe([
+        'surveys' => 'simple_surveys',
+        'questions' => 'simple_survey_questions',
+        'responses' => 'simple_survey_responses',
+        'answers' => 'simple_survey_answers',
+        'dismissals' => 'simple_survey_dismissals',
+    ])
         ->and(config('simple-surveys.respondent_key_type'))->toBe('id')
         ->and(config('simple-surveys.guard'))->toBeNull()
         ->and(config('simple-surveys.routes.enabled'))->toBeTrue()

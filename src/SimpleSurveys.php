@@ -6,8 +6,10 @@ namespace DanielCristea\SimpleSurveys;
 
 use Carbon\CarbonInterface;
 use DanielCristea\SimpleSurveys\Contracts\SurveyDefinition;
+use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 
@@ -18,6 +20,7 @@ final class SimpleSurveys
     public function __construct(
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
+        private readonly SurveySynchronizer $synchronizer,
     ) {}
 
     /**
@@ -81,5 +84,13 @@ final class SimpleSurveys
         }
 
         return $this->eligibility->isEligible($resolved, $user, $now);
+    }
+
+    /**
+     * @return Collection<int, SurveyRecord>
+     */
+    public function sync(): Collection
+    {
+        return $this->synchronizer->syncAll();
     }
 }

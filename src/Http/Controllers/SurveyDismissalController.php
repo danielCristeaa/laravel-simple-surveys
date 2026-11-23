@@ -4,21 +4,25 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys\Http\Controllers;
 
-use DanielCristea\SimpleSurveys\Enums\ResponseStatus;
 use DanielCristea\SimpleSurveys\Events\SurveyDismissed;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 final class SurveyDismissalController
 {
     public function __construct(
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
+        private readonly SurveySynchronizer $synchronizer,
     ) {}
 
     public function __invoke(Request $request, string $surveyKey): JsonResponse|RedirectResponse
@@ -40,37 +44,47 @@ final class SurveyDismissalController
             abort(403, 'This survey cannot be dismissed.');
         }
 
-        $existing = SurveyResponse::query()
-            ->forSurvey($survey->key())
-            ->forRespondent($user)
-            ->first();
+        $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
 
-        if ($existing !== null) {
-            if ($existing->isDismissed()) {
+        if ($existingRecord !== null) {
+            $alreadyDismissed = SurveyDismissal::query()
+                ->forSurvey($existingRecord)
+                ->forRespondent($user)
+                ->exists();
+
+            if ($alreadyDismissed) {
                 return $request->expectsJson()
                     ? new JsonResponse(['status' => 'dismissed', 'survey_key' => $survey->key()])
                     : back();
             }
 
-            abort(409, 'Survey has already been completed.');
+            $alreadyCompleted = SurveyResponse::query()
+                ->forSurvey($existingRecord)
+                ->forRespondent($user)
+                ->exists();
+
+            if ($alreadyCompleted) {
+                abort(409, 'Survey has already been completed.');
+            }
         }
 
         if (! $this->eligibility->isEligible($survey, $user)) {
             abort(403, 'You are not eligible for this survey.');
         }
 
-        $response = SurveyResponse::query()->create([
-            'survey_key' => $survey->key(),
-            'respondent_type' => $user->getMorphClass(),
-            'respondent_id' => $user->getKey(),
-            'status' => ResponseStatus::Dismissed,
-            'answers' => null,
-            'metadata' => null,
-            'completed_at' => null,
-            'dismissed_at' => now(),
-        ]);
+        /** @var SurveyDismissal $dismissal */
+        $dismissal = DB::transaction(function () use ($survey, $user): SurveyDismissal {
+            $record = $this->synchronizer->sync($survey);
 
-        SurveyDismissed::dispatch($survey, $response, $user);
+            return SurveyDismissal::query()->create([
+                'survey_id' => $record->getKey(),
+                'respondent_type' => $user->getMorphClass(),
+                'respondent_id' => $user->getKey(),
+                'dismissed_at' => now(),
+            ]);
+        });
+
+        SurveyDismissed::dispatch($survey, $dismissal, $user);
 
         if ($request->expectsJson()) {
             return new JsonResponse([

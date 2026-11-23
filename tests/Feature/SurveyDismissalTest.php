@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-use DanielCristea\SimpleSurveys\Enums\ResponseStatus;
 use DanielCristea\SimpleSurveys\Events\SurveyDismissed;
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\Tests\Support\User;
@@ -30,9 +31,7 @@ it('dismisses a survey idempotently and dispatches event once', function (): voi
         ->postJson(route('simple-surveys.dismiss', 'banner-survey'))
         ->assertOk();
 
-    expect(SurveyResponse::query()->forSurvey('banner-survey')->forRespondent($user)->count())->toBe(1)
-        ->and(SurveyResponse::query()->forSurvey('banner-survey')->forRespondent($user)->first()?->status)
-        ->toBe(ResponseStatus::Dismissed);
+    expect(SurveyDismissal::query()->forSurvey('banner-survey')->forRespondent($user)->count())->toBe(1);
 
     Event::assertDispatchedTimes(SurveyDismissed::class, 1);
 });
@@ -43,11 +42,15 @@ it('forbids dismissing a non-dismissible survey or an already completed survey',
     SimpleSurveys::register(Survey::make('mandatory')->dismissible(false));
     SimpleSurveys::register(Survey::make('already-done'));
 
-    SurveyResponse::factory()
-        ->forSurvey('already-done')
-        ->forRespondent($user)
-        ->completed(['a' => 'b'])
-        ->create();
+    SimpleSurveys::sync();
+    $record = SurveyRecord::query()->byKey('already-done')->firstOrFail();
+
+    SurveyResponse::query()->create([
+        'survey_id' => $record->id,
+        'respondent_type' => $user->getMorphClass(),
+        'respondent_id' => $user->id,
+        'completed_at' => now(),
+    ]);
 
     $this->actingAs($user)
         ->postJson(route('simple-surveys.dismiss', 'mandatory'))

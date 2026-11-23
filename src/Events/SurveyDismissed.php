@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys\Events;
 
-use DanielCristea\SimpleSurveys\Models\SurveyResponse;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
 use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -15,7 +15,7 @@ final class SurveyDismissed
 
     public function __construct(
         public readonly Survey $survey,
-        public readonly SurveyResponse $response,
+        public readonly SurveyDismissal $dismissal,
         public readonly Model $respondent,
     ) {}
 }

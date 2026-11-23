@@ -5,47 +5,40 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Models;
 
 use Carbon\CarbonInterface;
-use DanielCristea\SimpleSurveys\Database\Factories\SurveyResponseFactory;
-use DanielCristea\SimpleSurveys\Enums\ResponseStatus;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * @property int $id
- * @property string $survey_key
+ * @property int $survey_id
  * @property string $respondent_type
  * @property int|string $respondent_id
- * @property ResponseStatus $status
- * @property array<string, mixed>|null $answers
  * @property array<string, mixed>|null $metadata
- * @property CarbonInterface|null $completed_at
- * @property CarbonInterface|null $dismissed_at
+ * @property CarbonInterface $completed_at
  * @property CarbonInterface|null $created_at
  * @property CarbonInterface|null $updated_at
+ * @property-read SurveyRecord $survey
  * @property-read Model|null $respondent
+ * @property-read Collection<int, SurveyAnswer> $answers
  */
 class SurveyResponse extends Model
 {
-    /** @use HasFactory<SurveyResponseFactory> */
-    use HasFactory;
-
     /** @var list<string> */
     protected $fillable = [
-        'survey_key',
+        'survey_id',
         'respondent_type',
         'respondent_id',
-        'status',
-        'answers',
         'metadata',
         'completed_at',
-        'dismissed_at',
     ];
 
     public function getTable(): string
     {
-        $configured = config('simple-surveys.table_name', 'simple_survey_responses');
+        $configured = config('simple-surveys.tables.responses', 'simple_survey_responses');
 
         return is_string($configured) && $configured !== ''
             ? $configured
@@ -58,12 +51,17 @@ class SurveyResponse extends Model
     protected function casts(): array
     {
         return [
-            'status' => ResponseStatus::class,
-            'answers' => 'array',
             'metadata' => 'array',
             'completed_at' => 'datetime',
-            'dismissed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<SurveyRecord, $this>
+     */
+    public function survey(): BelongsTo
+    {
+        return $this->belongsTo(SurveyRecord::class, 'survey_id');
     }
 
     /**
@@ -75,30 +73,26 @@ class SurveyResponse extends Model
     }
 
     /**
-     * @param  Builder<self>  $query
-     * @return Builder<self>
+     * @return HasMany<SurveyAnswer, $this>
      */
-    public function scopeForSurvey(Builder $query, string $surveyKey): Builder
+    public function answers(): HasMany
     {
-        return $query->where('survey_key', $surveyKey);
+        return $this->hasMany(SurveyAnswer::class, 'response_id');
     }
 
     /**
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeCompleted(Builder $query): Builder
+    public function scopeForSurvey(Builder $query, SurveyRecord|string $survey): Builder
     {
-        return $query->where('status', ResponseStatus::Completed);
-    }
+        if ($survey instanceof SurveyRecord) {
+            return $query->where('survey_id', $survey->getKey());
+        }
 
-    /**
-     * @param  Builder<self>  $query
-     * @return Builder<self>
-     */
-    public function scopeDismissed(Builder $query): Builder
-    {
-        return $query->where('status', ResponseStatus::Dismissed);
+        return $query->whereHas('survey', static function (Builder $surveyQuery) use ($survey): void {
+            $surveyQuery->where('key', $survey);
+        });
     }
 
     /**
@@ -112,27 +106,11 @@ class SurveyResponse extends Model
             ->where('respondent_id', $respondent->getKey());
     }
 
-    public function isCompleted(): bool
+    public function answerFor(string $questionKey, mixed $default = null): mixed
     {
-        return $this->status === ResponseStatus::Completed;
-    }
+        $answer = $this->answers
+            ->first(static fn (SurveyAnswer $item): bool => $item->question->key === $questionKey);
 
-    public function isDismissed(): bool
-    {
-        return $this->status === ResponseStatus::Dismissed;
-    }
-
-    public function answer(string $questionKey, mixed $default = null): mixed
-    {
-        $answers = $this->answers ?? [];
-
-        return array_key_exists($questionKey, $answers)
-            ? $answers[$questionKey]
-            : $default;
-    }
-
-    protected static function newFactory(): SurveyResponseFactory
-    {
-        return SurveyResponseFactory::new();
+        return $answer !== null ? $answer->typedValue() : $default;
     }
 }

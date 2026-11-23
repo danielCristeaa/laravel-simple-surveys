@@ -1,0 +1,138 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        /** @var string $surveysTable */
+        $surveysTable = config('simple-surveys.tables.surveys', 'simple_surveys');
+
+        /** @var string $questionsTable */
+        $questionsTable = config('simple-surveys.tables.questions', 'simple_survey_questions');
+
+        /** @var string $responsesTable */
+        $responsesTable = config('simple-surveys.tables.responses', 'simple_survey_responses');
+
+        /** @var string $answersTable */
+        $answersTable = config('simple-surveys.tables.answers', 'simple_survey_answers');
+
+        /** @var string $dismissalsTable */
+        $dismissalsTable = config('simple-surveys.tables.dismissals', 'simple_survey_dismissals');
+
+        /** @var string $keyType */
+        $keyType = config('simple-surveys.respondent_key_type', 'id');
+
+        Schema::create($surveysTable, function (Blueprint $table): void {
+            $table->id();
+            $table->string('key')->unique();
+            $table->string('title');
+            $table->string('banner_text');
+            $table->text('description')->nullable();
+            $table->string('status')->default('active')->index();
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
+            $table->boolean('dismissible')->default(true);
+            $table->integer('priority')->default(0);
+            $table->timestamps();
+        });
+
+        Schema::create($questionsTable, function (Blueprint $table) use ($surveysTable): void {
+            $table->id();
+            $table->foreignId('survey_id')->constrained($surveysTable)->cascadeOnDelete();
+            $table->string('key');
+            $table->string('type');
+            $table->string('label');
+            $table->text('help_text')->nullable();
+            $table->string('placeholder')->nullable();
+            $table->json('options')->nullable();
+            $table->json('constraints')->nullable();
+            $table->boolean('is_required')->default(false);
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->timestamps();
+
+            $table->unique(['survey_id', 'key'], 'lss_survey_question_unique');
+        });
+
+        Schema::create($responsesTable, function (Blueprint $table) use ($surveysTable, $keyType): void {
+            $table->id();
+            $table->foreignId('survey_id')->constrained($surveysTable)->cascadeOnDelete();
+
+            match ($keyType) {
+                'uuid' => $table->uuidMorphs('respondent'),
+                'ulid' => $table->ulidMorphs('respondent'),
+                default => $table->morphs('respondent'),
+            };
+
+            $table->json('metadata')->nullable();
+            $table->timestamp('completed_at');
+            $table->timestamps();
+
+            $table->unique(
+                ['survey_id', 'respondent_type', 'respondent_id'],
+                'lss_response_respondent_unique',
+            );
+        });
+
+        Schema::create($answersTable, function (Blueprint $table) use ($responsesTable, $questionsTable): void {
+            $table->id();
+            $table->foreignId('response_id')->constrained($responsesTable)->cascadeOnDelete();
+            $table->foreignId('question_id')->constrained($questionsTable)->cascadeOnDelete();
+            $table->text('value')->nullable();
+            $table->double('value_numeric')->nullable();
+            $table->json('value_json')->nullable();
+            $table->timestamps();
+
+            $table->unique(['response_id', 'question_id'], 'lss_answer_response_question_unique');
+            $table->index(['question_id', 'value_numeric'], 'lss_answer_question_numeric_index');
+        });
+
+        Schema::create($dismissalsTable, function (Blueprint $table) use ($surveysTable, $keyType): void {
+            $table->id();
+            $table->foreignId('survey_id')->constrained($surveysTable)->cascadeOnDelete();
+
+            match ($keyType) {
+                'uuid' => $table->uuidMorphs('respondent'),
+                'ulid' => $table->ulidMorphs('respondent'),
+                default => $table->morphs('respondent'),
+            };
+
+            $table->timestamp('dismissed_at');
+            $table->timestamps();
+
+            $table->unique(
+                ['survey_id', 'respondent_type', 'respondent_id'],
+                'lss_dismissal_respondent_unique',
+            );
+        });
+    }
+
+    public function down(): void
+    {
+        /** @var string $dismissalsTable */
+        $dismissalsTable = config('simple-surveys.tables.dismissals', 'simple_survey_dismissals');
+
+        /** @var string $answersTable */
+        $answersTable = config('simple-surveys.tables.answers', 'simple_survey_answers');
+
+        /** @var string $responsesTable */
+        $responsesTable = config('simple-surveys.tables.responses', 'simple_survey_responses');
+
+        /** @var string $questionsTable */
+        $questionsTable = config('simple-surveys.tables.questions', 'simple_survey_questions');
+
+        /** @var string $surveysTable */
+        $surveysTable = config('simple-surveys.tables.surveys', 'simple_surveys');
+
+        Schema::dropIfExists($dismissalsTable);
+        Schema::dropIfExists($answersTable);
+        Schema::dropIfExists($responsesTable);
+        Schema::dropIfExists($questionsTable);
+        Schema::dropIfExists($surveysTable);
+    }
+};

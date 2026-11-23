@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys;
 
+use DanielCristea\SimpleSurveys\Console\Commands\SyncSurveysCommand;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
@@ -20,7 +22,8 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
             ->name('simple-surveys')
             ->hasConfigFile('simple-surveys')
             ->hasViews('simple-surveys')
-            ->hasMigration('create_simple_survey_responses_table');
+            ->hasMigration('create_simple_surveys_tables')
+            ->hasCommand(SyncSurveysCommand::class);
     }
 
     public function packageRegistered(): void
@@ -28,6 +31,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyRegistry::class);
         $this->app->singleton(SurveyEligibilityResolver::class);
         $this->app->singleton(SurveyValidator::class);
+        $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SimpleSurveys::class);
     }
 

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use DanielCristea\SimpleSurveys\Enums\ResponseStatus;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
@@ -12,7 +12,7 @@ use DanielCristea\SimpleSurveys\Tests\Support\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Event;
 
-it('submits a valid survey response, persists answers, and dispatches event', function (): void {
+it('auto-syncs, persists relational answers, and dispatches event on submission', function (): void {
     Event::fake([SurveySubmitted::class]);
 
     $user = User::create(['name' => 'Alice', 'email' => 'alice@example.com', 'plan' => 'pro']);
@@ -23,6 +23,8 @@ it('submits a valid survey response, persists answers, and dispatches event', fu
             ->target(fn (Builder $q) => $q->where('plan', 'pro'))
             ->questions([
                 Question::rating('score', 'Score')->scale(1, 5)->required(),
+                Question::checkbox('features', 'Features')->options(['api' => 'API', 'ui' => 'UI']),
+                Question::boolean('recommend', 'Recommend')->required(),
                 Question::text('feedback', 'Feedback')->maxLength(255),
             ])
     );
@@ -31,6 +33,8 @@ it('submits a valid survey response, persists answers, and dispatches event', fu
         ->postJson(route('simple-surveys.responses.store', 'onboarding'), [
             'answers' => [
                 'score' => 5,
+                'features' => ['api', 'ui'],
+                'recommend' => true,
                 'feedback' => 'Loving it!',
             ],
             'url' => '/dashboard',
@@ -42,21 +46,25 @@ it('submits a valid survey response, persists answers, and dispatches event', fu
             'survey_key' => 'onboarding',
         ]);
 
-    $stored = SurveyResponse::query()->forSurvey('onboarding')->forRespondent($user)->first();
+    $stored = SurveyResponse::query()
+        ->forSurvey('onboarding')
+        ->forRespondent($user)
+        ->with('answers.question')
+        ->first();
 
     expect($stored)->not->toBeNull()
-        ->and($stored?->status)->toBe(ResponseStatus::Completed)
-        ->and($stored?->answers)->toBe([
-            'score' => 5,
-            'feedback' => 'Loving it!',
-        ])
         ->and($stored?->metadata)->toBe(['url' => '/dashboard'])
-        ->and($stored?->completed_at)->not->toBeNull();
+        ->and($stored?->completed_at)->not->toBeNull()
+        ->and(SurveyAnswer::query()->count())->toBe(4)
+        ->and($stored?->answerFor('score'))->toBe(5)
+        ->and($stored?->answerFor('features'))->toBe(['api', 'ui'])
+        ->and($stored?->answerFor('recommend'))->toBeTrue()
+        ->and($stored?->answerFor('feedback'))->toBe('Loving it!');
 
     Event::assertDispatched(SurveySubmitted::class, function (SurveySubmitted $event) use ($user): bool {
         return $event->survey->key() === 'onboarding'
             && $event->respondent->is($user)
-            && $event->response->isCompleted();
+            && $event->response->answers->count() === 4;
     });
 });
 

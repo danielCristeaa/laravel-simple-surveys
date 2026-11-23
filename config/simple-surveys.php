@@ -5,13 +5,20 @@ declare(strict_types=1);
 return [
     /*
     |--------------------------------------------------------------------------
-    | Database Table Name
+    | Database Table Names
     |--------------------------------------------------------------------------
     |
-    | The table used to store survey responses and dismissals.
+    | The tables used to store surveys, questions, responses, answers, and
+    | dismissals.
     |
     */
-    'table_name' => 'simple_survey_responses',
+    'tables' => [
+        'surveys' => 'simple_surveys',
+        'questions' => 'simple_survey_questions',
+        'responses' => 'simple_survey_responses',
+        'answers' => 'simple_survey_answers',
+        'dismissals' => 'simple_survey_dismissals',
+    ],
 
     /*
     |--------------------------------------------------------------------------
