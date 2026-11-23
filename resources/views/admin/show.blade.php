@@ -27,7 +27,10 @@
                     method="POST"
                     action="{{ route('simple-surveys.admin.close', $results['key']) }}"
                     class="inline-form"
-                    onsubmit="return confirm('Are you sure you want to end this survey now? Users will no longer see it.');"
+                    data-confirm-title="End survey now?"
+                    data-confirm-message="Are you sure you want to end this survey now? Users will no longer see it."
+                    data-confirm-button="End Survey"
+                    data-confirm-variant="danger"
                 >
                     @csrf
                     <button type="submit" class="btn btn-danger">End Survey Now</button>
@@ -37,7 +40,10 @@
                     method="POST"
                     action="{{ route('simple-surveys.admin.reopen', $results['key']) }}"
                     class="inline-form"
-                    onsubmit="return confirm('Are you sure you want to re-open this survey? Eligible users will see it again.');"
+                    data-confirm-title="Re-open survey?"
+                    data-confirm-message="Are you sure you want to re-open this survey? Eligible users will see it again."
+                    data-confirm-button="Re-open Survey"
+                    data-confirm-variant="success"
                 >
                     @csrf
                     <button type="submit" class="btn btn-success">Re-open Survey</button>

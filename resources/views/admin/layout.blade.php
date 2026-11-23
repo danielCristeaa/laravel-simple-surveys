@@ -167,6 +167,90 @@
             display: inline-block;
             margin: 0;
         }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.48);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.16s ease;
+        }
+        .modal-backdrop.is-open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-dialog {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.22);
+            padding: 22px;
+            transform: scale(0.96);
+            transition: transform 0.16s ease;
+        }
+        .modal-backdrop.is-open .modal-dialog {
+            transform: scale(1);
+        }
+        .modal-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .modal-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .modal-icon-danger {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        .modal-icon-success {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+        .modal-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .modal-message {
+            margin: 6px 0 0;
+            font-size: 13.5px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        .btn-danger-solid {
+            background: #dc2626;
+            border-color: #dc2626;
+            color: #ffffff;
+        }
+        .btn-danger-solid:hover { background: #b91c1c; color: #ffffff; }
+        .btn-success-solid {
+            background: #16a34a;
+            border-color: #16a34a;
+            color: #ffffff;
+        }
+        .btn-success-solid:hover { background: #15803d; color: #ffffff; }
         .table-wrap {
             overflow-x: auto;
         }
@@ -286,5 +370,97 @@
 
         @yield('content')
     </main>
+
+    <div class="modal-backdrop" id="lss-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="lss-modal-title" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-head">
+                <div class="modal-icon modal-icon-danger" id="lss-modal-icon" aria-hidden="true"></div>
+                <div>
+                    <h2 class="modal-title" id="lss-modal-title">Confirm Action</h2>
+                    <p class="modal-message" id="lss-modal-message"></p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" id="lss-modal-cancel">Cancel</button>
+                <button type="button" class="btn btn-danger-solid" id="lss-modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var modal = document.getElementById('lss-confirm-modal');
+            var titleEl = document.getElementById('lss-modal-title');
+            var messageEl = document.getElementById('lss-modal-message');
+            var iconEl = document.getElementById('lss-modal-icon');
+            var cancelBtn = document.getElementById('lss-modal-cancel');
+            var confirmBtn = document.getElementById('lss-modal-confirm');
+            var pendingForm = null;
+
+            var dangerSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+            var successSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+            function openModal(form) {
+                pendingForm = form;
+                var variant = form.dataset.confirmVariant || 'danger';
+
+                titleEl.textContent = form.dataset.confirmTitle || 'Confirm Action';
+                messageEl.textContent = form.dataset.confirmMessage || 'Are you sure you want to continue?';
+                confirmBtn.textContent = form.dataset.confirmButton || 'Confirm';
+
+                if (variant === 'success') {
+                    iconEl.className = 'modal-icon modal-icon-success';
+                    iconEl.innerHTML = successSvg;
+                    confirmBtn.className = 'btn btn-success-solid';
+                } else {
+                    iconEl.className = 'modal-icon modal-icon-danger';
+                    iconEl.innerHTML = dangerSvg;
+                    confirmBtn.className = 'btn btn-danger-solid';
+                }
+
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                confirmBtn.focus();
+            }
+
+            function closeModal() {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                pendingForm = null;
+            }
+
+            document.querySelectorAll('form[data-confirm-message]').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.confirmed === '1') {
+                        return;
+                    }
+                    event.preventDefault();
+                    openModal(form);
+                });
+            });
+
+            cancelBtn.addEventListener('click', closeModal);
+
+            confirmBtn.addEventListener('click', function () {
+                if (!pendingForm) return;
+                var formToSubmit = pendingForm;
+                formToSubmit.dataset.confirmed = '1';
+                closeModal();
+                formToSubmit.submit();
+            });
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                    closeModal();
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
