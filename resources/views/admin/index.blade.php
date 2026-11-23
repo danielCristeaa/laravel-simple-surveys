@@ -90,12 +90,22 @@
                                         </a>
 
                                         @if ($survey['registered'] && $survey['status'] === SurveyStatus::Active)
-                                            <form method="POST" action="{{ route('simple-surveys.admin.close', $survey['key']) }}" class="inline-form">
+                                            <form
+                                                method="POST"
+                                                action="{{ route('simple-surveys.admin.close', $survey['key']) }}"
+                                                class="inline-form"
+                                                onsubmit="return confirm('Are you sure you want to end this survey now? Users will no longer see it.');"
+                                            >
                                                 @csrf
                                                 <button type="submit" class="btn btn-danger">End Now</button>
                                             </form>
                                         @elseif ($survey['registered'] && $survey['status'] === SurveyStatus::Closed)
-                                            <form method="POST" action="{{ route('simple-surveys.admin.reopen', $survey['key']) }}" class="inline-form">
+                                            <form
+                                                method="POST"
+                                                action="{{ route('simple-surveys.admin.reopen', $survey['key']) }}"
+                                                class="inline-form"
+                                                onsubmit="return confirm('Are you sure you want to re-open this survey? Eligible users will see it again.');"
+                                            >
                                                 @csrf
                                                 <button type="submit" class="btn btn-success">Re-open</button>
                                             </form>

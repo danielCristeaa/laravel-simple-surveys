@@ -200,11 +200,13 @@ it('allows an authorized admin to end a running survey and re-open it later', fu
         ->post(route('simple-surveys.admin.reopen', 'toggle-survey'))
         ->assertForbidden();
 
-    // Initially active: admin sees End Survey Now button, user is eligible
+    // Initially active: admin sees End Survey Now button, confirm prompt, and Back to App link
     $this->actingAs($admin)
         ->get(route('simple-surveys.admin.show', 'toggle-survey'))
         ->assertOk()
+        ->assertSee('Back to App')
         ->assertSee('End Survey Now')
+        ->assertSee('Are you sure you want to end this survey now?')
         ->assertDontSee('Re-open Survey');
 
     expect(SimpleSurveys::forUser($regularUser)?->key())->toBe('toggle-survey');

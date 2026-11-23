@@ -268,7 +268,12 @@
                 <span class="brand-dot"></span>
                 <span>Simple Surveys</span>
             </a>
-            <span class="muted" style="font-size: 12.5px;">Admin Results</span>
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <span class="muted" style="font-size: 12.5px;">Admin Results</span>
+                <a href="{{ url('/') }}" class="btn" style="padding: 5px 10px; font-size: 12.5px;">
+                    &larr; Back to App
+                </a>
+            </div>
         </div>
     </header>
 
