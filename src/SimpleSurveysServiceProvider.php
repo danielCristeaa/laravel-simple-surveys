@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys;
 
 use DanielCristea\SimpleSurveys\Console\Commands\SyncSurveysCommand;
+use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
 use Illuminate\Support\Facades\Blade;
@@ -32,6 +34,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyEligibilityResolver::class);
         $this->app->singleton(SurveyValidator::class);
         $this->app->singleton(SurveySynchronizer::class);
+        $this->app->singleton(SurveyResultsAggregator::class);
         $this->app->singleton(SimpleSurveys::class);
     }
 
@@ -40,6 +43,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         Blade::componentNamespace('DanielCristea\\SimpleSurveys\\View\\Components', 'simple-surveys');
 
         $this->registerCustomerRoutes();
+        $this->registerAdminRoutes();
     }
 
     private function registerCustomerRoutes(): void
@@ -54,5 +58,21 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         Route::prefix(is_string($prefix) ? $prefix : 'simple-surveys')
             ->middleware(is_array($middleware) ? $middleware : ['web', 'auth'])
             ->group(__DIR__.'/../routes/web.php');
+    }
+
+    private function registerAdminRoutes(): void
+    {
+        if (! config('simple-surveys.admin.enabled', true)) {
+            return;
+        }
+
+        $prefix = config('simple-surveys.admin.prefix', 'simple-surveys/admin');
+        $middleware = config('simple-surveys.admin.middleware', ['web', 'auth']);
+        $resolvedMiddleware = is_array($middleware) ? $middleware : ['web', 'auth'];
+        $resolvedMiddleware[] = AuthorizeSimpleSurveys::class;
+
+        Route::prefix(is_string($prefix) ? $prefix : 'simple-surveys/admin')
+            ->middleware($resolvedMiddleware)
+            ->group(__DIR__.'/../routes/admin.php');
     }
 }
