@@ -52,6 +52,14 @@ abstract class TestCase extends Orchestra
             $table->timestamps();
         });
 
+        Schema::create('orders', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('user_id');
+            $table->string('status')->default('paid');
+            $table->unsignedInteger('total_cents')->default(0);
+            $table->timestamps();
+        });
+
         $migration = require __DIR__.'/../database/migrations/create_simple_survey_responses_table.php.stub';
         $migration->up();
     }

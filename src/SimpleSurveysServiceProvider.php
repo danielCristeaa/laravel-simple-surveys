@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys;
 
+use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -21,6 +22,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
     public function packageRegistered(): void
     {
         $this->app->singleton(SurveyRegistry::class);
+        $this->app->singleton(SurveyEligibilityResolver::class);
         $this->app->singleton(SimpleSurveys::class);
     }
 }

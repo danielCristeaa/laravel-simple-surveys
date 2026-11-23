@@ -6,7 +6,9 @@ namespace DanielCristea\SimpleSurveys;
 
 use Carbon\CarbonInterface;
 use DanielCristea\SimpleSurveys\Contracts\SurveyDefinition;
+use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 
 final class SimpleSurveys
@@ -15,6 +17,7 @@ final class SimpleSurveys
 
     public function __construct(
         private readonly SurveyRegistry $registry,
+        private readonly SurveyEligibilityResolver $eligibility,
     ) {}
 
     /**
@@ -54,5 +57,29 @@ final class SimpleSurveys
     public function clear(): void
     {
         $this->registry->clear();
+    }
+
+    public function forUser(?Authenticatable $user, ?CarbonInterface $now = null): ?Survey
+    {
+        return $this->eligibility->nextFor($user, $now);
+    }
+
+    /**
+     * @return Collection<int, Survey>
+     */
+    public function eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null): Collection
+    {
+        return $this->eligibility->eligibleFor($user, $now);
+    }
+
+    public function isEligible(Survey|string $survey, ?Authenticatable $user, ?CarbonInterface $now = null): bool
+    {
+        $resolved = is_string($survey) ? $this->find($survey) : $survey;
+
+        if ($resolved === null) {
+            return false;
+        }
+
+        return $this->eligibility->isEligible($resolved, $user, $now);
     }
 }
