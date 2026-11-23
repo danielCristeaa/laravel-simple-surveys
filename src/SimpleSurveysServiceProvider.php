@@ -6,6 +6,8 @@ namespace DanielCristea\SimpleSurveys;
 
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveyValidator;
+use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -23,6 +25,26 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
     {
         $this->app->singleton(SurveyRegistry::class);
         $this->app->singleton(SurveyEligibilityResolver::class);
+        $this->app->singleton(SurveyValidator::class);
         $this->app->singleton(SimpleSurveys::class);
+    }
+
+    public function packageBooted(): void
+    {
+        $this->registerCustomerRoutes();
+    }
+
+    private function registerCustomerRoutes(): void
+    {
+        if (! config('simple-surveys.routes.enabled', true)) {
+            return;
+        }
+
+        $prefix = config('simple-surveys.routes.prefix', 'simple-surveys');
+        $middleware = config('simple-surveys.routes.middleware', ['web', 'auth']);
+
+        Route::prefix(is_string($prefix) ? $prefix : 'simple-surveys')
+            ->middleware(is_array($middleware) ? $middleware : ['web', 'auth'])
+            ->group(__DIR__.'/../routes/web.php');
     }
 }
