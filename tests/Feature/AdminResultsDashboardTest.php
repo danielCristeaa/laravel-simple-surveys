@@ -178,3 +178,71 @@ it('streams a valid csv export of survey responses', function (): void {
         ->get(route('simple-surveys.admin.export', 'unknown'))
         ->assertNotFound();
 });
+
+it('allows an authorized admin to end a running survey and re-open it later', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $regularUser = User::create(['name' => 'Regular', 'email' => 'regular@example.com', 'is_admin' => false]);
+
+    SimpleSurveys::register(
+        Survey::make('toggle-survey')
+            ->title('Toggle Survey')
+            ->questions([
+                Question::text('feedback', 'Feedback')->required(),
+            ])
+    );
+
+    // Unauthorized users cannot close or reopen
+    $this->actingAs($regularUser)
+        ->post(route('simple-surveys.admin.close', 'toggle-survey'))
+        ->assertForbidden();
+
+    $this->actingAs($regularUser)
+        ->post(route('simple-surveys.admin.reopen', 'toggle-survey'))
+        ->assertForbidden();
+
+    // Initially active: admin sees End Survey Now button, user is eligible
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'toggle-survey'))
+        ->assertOk()
+        ->assertSee('End Survey Now')
+        ->assertDontSee('Re-open Survey');
+
+    expect(SimpleSurveys::forUser($regularUser)?->key())->toBe('toggle-survey');
+
+    // Admin ends the survey now
+    $this->actingAs($admin)
+        ->post(route('simple-surveys.admin.close', 'toggle-survey'))
+        ->assertRedirect()
+        ->assertSessionHas('simple_surveys_admin_status');
+
+    // Re-syncing from code must NOT overwrite the admin's closed status
+    SimpleSurveys::sync();
+
+    expect(SimpleSurveys::forUser($regularUser))->toBeNull();
+
+    $this->actingAs($regularUser)
+        ->postJson(route('simple-surveys.responses.store', 'toggle-survey'), [
+            'answers' => ['feedback' => 'Too late!'],
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'toggle-survey'))
+        ->assertOk()
+        ->assertSee('Re-open Survey')
+        ->assertDontSee('End Survey Now');
+
+    // Admin re-opens the survey
+    $this->actingAs($admin)
+        ->post(route('simple-surveys.admin.reopen', 'toggle-survey'))
+        ->assertRedirect()
+        ->assertSessionHas('simple_surveys_admin_status');
+
+    expect(SimpleSurveys::forUser($regularUser)?->key())->toBe('toggle-survey');
+
+    $this->actingAs($regularUser)
+        ->postJson(route('simple-surveys.responses.store', 'toggle-survey'), [
+            'answers' => ['feedback' => 'Back open!'],
+        ])
+        ->assertCreated();
+});

@@ -17,9 +17,11 @@ final class SurveySynchronizer
 
     public function sync(Survey $survey): SurveyRecord
     {
-        $record = SurveyRecord::query()->updateOrCreate(
-            ['key' => $survey->key()],
-            [
+        $existing = SurveyRecord::query()->byKey($survey->key())->first();
+
+        if ($existing === null) {
+            $record = SurveyRecord::query()->create([
+                'key' => $survey->key(),
                 'title' => $survey->getTitle(),
                 'banner_text' => $survey->getBannerText(),
                 'description' => $survey->getDescription(),
@@ -28,8 +30,18 @@ final class SurveySynchronizer
                 'ends_at' => $survey->getEndsAt(),
                 'dismissible' => $survey->isDismissible(),
                 'priority' => $survey->getPriority(),
-            ],
-        );
+            ]);
+        } else {
+            $existing->update([
+                'title' => $survey->getTitle(),
+                'banner_text' => $survey->getBannerText(),
+                'description' => $survey->getDescription(),
+                'dismissible' => $survey->isDismissible(),
+                'priority' => $survey->getPriority(),
+            ]);
+
+            $record = $existing;
+        }
 
         foreach ($survey->getQuestions() as $index => $question) {
             $constraints = array_filter([

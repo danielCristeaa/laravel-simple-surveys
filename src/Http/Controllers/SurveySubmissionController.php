@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Http\Controllers;
 
 use DanielCristea\SimpleSurveys\Enums\QuestionType;
+use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
@@ -45,11 +46,15 @@ final class SurveySubmissionController
             abort(404, 'Survey not found.');
         }
 
-        if (! $survey->isActive()) {
+        $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
+
+        $isActive = $existingRecord !== null
+            ? $existingRecord->status === SurveyStatus::Active
+            : $survey->isActive();
+
+        if (! $isActive) {
             abort(403, 'Survey is not active.');
         }
-
-        $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
 
         if ($existingRecord !== null) {
             $alreadyInteracted = SurveyResponse::query()

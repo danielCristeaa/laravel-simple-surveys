@@ -142,6 +142,31 @@
             color: #ffffff;
         }
         .btn-primary:hover { background: #4338ca; color: #ffffff; }
+        .btn-danger {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+        .btn-danger:hover { background: #fee2e2; color: #991b1b; }
+        .btn-success {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+        .btn-success:hover { background: #dcfce7; color: #14532d; }
+        .alert-status {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .inline-form {
+            display: inline-block;
+            margin: 0;
+        }
         .table-wrap {
             overflow-x: auto;
         }
@@ -248,6 +273,12 @@
     </header>
 
     <main class="container">
+        @if (session('simple_surveys_admin_status'))
+            <div class="alert-status" role="status">
+                {{ session('simple_surveys_admin_status') }}
+            </div>
+        @endif
+
         @yield('content')
     </main>
 </body>

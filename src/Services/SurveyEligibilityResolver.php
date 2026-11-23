@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Services;
 
 use Carbon\CarbonInterface;
+use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
@@ -26,13 +27,22 @@ final class SurveyEligibilityResolver
             return null;
         }
 
-        $activeSurveys = $this->registry->active($now);
+        $candidates = $this->registry->all()->filter(
+            static fn (Survey $survey): bool => $survey->status($now) !== SurveyStatus::Draft
+        );
+
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $recordsByKey = $this->fetchRecordsByKey($candidates->keys()->all());
+        $activeSurveys = $this->filterActive($candidates, $recordsByKey, $now);
 
         if ($activeSurveys->isEmpty()) {
             return null;
         }
 
-        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all());
+        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all(), $recordsByKey);
 
         foreach ($activeSurveys as $survey) {
             if (in_array($survey->key(), $excludedKeys, true)) {
@@ -56,13 +66,22 @@ final class SurveyEligibilityResolver
             return new Collection;
         }
 
-        $activeSurveys = $this->registry->active($now);
+        $candidates = $this->registry->all()->filter(
+            static fn (Survey $survey): bool => $survey->status($now) !== SurveyStatus::Draft
+        );
+
+        if ($candidates->isEmpty()) {
+            return new Collection;
+        }
+
+        $recordsByKey = $this->fetchRecordsByKey($candidates->keys()->all());
+        $activeSurveys = $this->filterActive($candidates, $recordsByKey, $now);
 
         if ($activeSurveys->isEmpty()) {
             return new Collection;
         }
 
-        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all());
+        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all(), $recordsByKey);
 
         /** @var array<int, Survey> $eligible */
         $eligible = [];
@@ -86,11 +105,13 @@ final class SurveyEligibilityResolver
             return false;
         }
 
-        if (! $survey->isActive($now)) {
+        $recordsByKey = $this->fetchRecordsByKey([$survey->key()]);
+
+        if (! $this->isSurveyEffectivelyActive($survey, $recordsByKey[$survey->key()] ?? null, $now)) {
             return false;
         }
 
-        $excludedKeys = $this->excludedSurveyKeys($user, [$survey->key()]);
+        $excludedKeys = $this->excludedSurveyKeys($user, [$survey->key()], $recordsByKey);
 
         if (in_array($survey->key(), $excludedKeys, true)) {
             return false;
@@ -101,15 +122,64 @@ final class SurveyEligibilityResolver
 
     /**
      * @param  array<int, string>  $surveyKeys
+     * @return array<string, SurveyRecord>
+     */
+    private function fetchRecordsByKey(array $surveyKeys): array
+    {
+        if ($surveyKeys === []) {
+            return [];
+        }
+
+        /** @var array<string, SurveyRecord> $records */
+        $records = SurveyRecord::query()
+            ->whereIn('key', $surveyKeys)
+            ->get(['id', 'key', 'status'])
+            ->keyBy('key')
+            ->all();
+
+        return $records;
+    }
+
+    /**
+     * @param  Collection<string, Survey>  $candidates
+     * @param  array<string, SurveyRecord>  $recordsByKey
+     * @return Collection<string, Survey>
+     */
+    private function filterActive(Collection $candidates, array $recordsByKey, ?CarbonInterface $now): Collection
+    {
+        return $candidates->filter(
+            fn (Survey $survey): bool => $this->isSurveyEffectivelyActive(
+                $survey,
+                $recordsByKey[$survey->key()] ?? null,
+                $now,
+            )
+        );
+    }
+
+    private function isSurveyEffectivelyActive(Survey $survey, ?SurveyRecord $record, ?CarbonInterface $now): bool
+    {
+        if ($record !== null) {
+            return $record->status === SurveyStatus::Active;
+        }
+
+        return $survey->isActive($now);
+    }
+
+    /**
+     * @param  array<int, string>  $surveyKeys
+     * @param  array<string, SurveyRecord>  $recordsByKey
      * @return array<int, string>
      */
-    private function excludedSurveyKeys(Model $user, array $surveyKeys): array
+    private function excludedSurveyKeys(Model $user, array $surveyKeys, array $recordsByKey): array
     {
         /** @var array<int, string> $recordMap */
-        $recordMap = SurveyRecord::query()
-            ->whereIn('key', $surveyKeys)
-            ->pluck('key', 'id')
-            ->all();
+        $recordMap = [];
+
+        foreach ($surveyKeys as $key) {
+            if (isset($recordsByKey[$key])) {
+                $recordMap[(int) $recordsByKey[$key]->getKey()] = $key;
+            }
+        }
 
         if ($recordMap === []) {
             return [];

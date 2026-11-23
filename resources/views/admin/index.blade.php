@@ -84,9 +84,23 @@
                                     @endif
                                 </td>
                                 <td style="white-space: nowrap;">
-                                    <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" class="btn">
-                                        View Results
-                                    </a>
+                                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                                        <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" class="btn">
+                                            View Results
+                                        </a>
+
+                                        @if ($survey['registered'] && $survey['status'] === SurveyStatus::Active)
+                                            <form method="POST" action="{{ route('simple-surveys.admin.close', $survey['key']) }}" class="inline-form">
+                                                @csrf
+                                                <button type="submit" class="btn btn-danger">End Now</button>
+                                            </form>
+                                        @elseif ($survey['registered'] && $survey['status'] === SurveyStatus::Closed)
+                                            <form method="POST" action="{{ route('simple-surveys.admin.reopen', $survey['key']) }}" class="inline-form">
+                                                @csrf
+                                                <button type="submit" class="btn btn-success">Re-open</button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

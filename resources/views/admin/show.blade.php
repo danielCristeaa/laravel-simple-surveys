@@ -21,11 +21,25 @@
             @endif
         </div>
 
-        @if ($results['responses_count'] > 0)
-            <a href="{{ route('simple-surveys.admin.export', $results['key']) }}" class="btn btn-primary">
-                Export CSV
-            </a>
-        @endif
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            @if ($results['registered'] && $results['status'] === \DanielCristea\SimpleSurveys\Enums\SurveyStatus::Active)
+                <form method="POST" action="{{ route('simple-surveys.admin.close', $results['key']) }}" class="inline-form">
+                    @csrf
+                    <button type="submit" class="btn btn-danger">End Survey Now</button>
+                </form>
+            @elseif ($results['registered'] && $results['status'] === \DanielCristea\SimpleSurveys\Enums\SurveyStatus::Closed)
+                <form method="POST" action="{{ route('simple-surveys.admin.reopen', $results['key']) }}" class="inline-form">
+                    @csrf
+                    <button type="submit" class="btn btn-success">Re-open Survey</button>
+                </form>
+            @endif
+
+            @if ($results['responses_count'] > 0)
+                <a href="{{ route('simple-surveys.admin.export', $results['key']) }}" class="btn btn-primary">
+                    Export CSV
+                </a>
+            @endif
+        </div>
     </div>
 
     <div class="kpi-grid">
