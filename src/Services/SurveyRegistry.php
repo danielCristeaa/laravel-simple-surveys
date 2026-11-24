@@ -87,9 +87,6 @@ final class SurveyRegistry
         $this->surveys = [];
     }
 
-    /**
-     * @param  Survey|SurveyDefinition|class-string<SurveyDefinition>  $survey
-     */
     private function resolveSurvey(Survey|SurveyDefinition|string $survey): Survey
     {
         if ($survey instanceof Survey) {
