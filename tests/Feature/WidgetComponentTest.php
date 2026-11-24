@@ -65,6 +65,7 @@ it('renders the bottom-right widget with all question types for an eligible user
         ->toContain('Product Feedback')
         ->toContain('Help us build better features.')
         ->toContain('Send Feedback')
+        ->toContain("Don't show again")
         ->toContain('data-lss-dismiss')
         ->toContain(route('simple-surveys.responses.store', 'product-survey'))
         ->toContain(route('simple-surveys.dismiss', 'product-survey'))
@@ -106,4 +107,20 @@ it('supports specific survey attribute, bottom-left position, and non-dismissibl
     ]);
 
     expect(trim(Blade::render('<x-simple-surveys::widget survey="specific-one" />')))->toBe('');
+});
+
+it('renders Remind me later label when reprompt cooldown is configured', function (): void {
+    $user = User::create(['name' => 'Maya', 'email' => 'maya@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('reprompt-widget')->repromptAfterDays(7)
+    );
+
+    $this->actingAs($user);
+
+    $html = Blade::render('<x-simple-surveys::widget />');
+
+    expect($html)
+        ->toContain('Remind me later')
+        ->not->toContain("Don't show again");
 });

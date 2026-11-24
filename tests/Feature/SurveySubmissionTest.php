@@ -5,6 +5,7 @@ declare(strict_types=1);
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
@@ -124,4 +125,45 @@ it('rejects unauthenticated, unknown, inactive, ineligible, and duplicate submis
     $this->actingAs($proUser)
         ->postJson(route('simple-surveys.responses.store', 'pro-only'), ['answers' => ['q' => 'again']])
         ->assertConflict();
+});
+
+it('allows submission after dismissal cooldown expires and removes the dismissal row', function (): void {
+    $user = User::create(['name' => 'Liam', 'email' => 'liam@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('reprompt-submit')
+            ->repromptAfterDays(7)
+            ->questions([
+                Question::rating('score', 'Score')->scale(1, 5)->required(),
+            ])
+    );
+
+    // User dismisses first
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.dismiss', 'reprompt-submit'))
+        ->assertOk();
+
+    expect(SurveyDismissal::query()->forSurvey('reprompt-submit')->forRespondent($user)->count())->toBe(1);
+
+    // Still within cooldown -> submission blocked with 409
+    $this->travel(3)->days();
+
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.responses.store', 'reprompt-submit'), [
+            'answers' => ['score' => 5],
+        ])
+        ->assertConflict();
+
+    // Cooldown expires -> submission succeeds and deletes the stale dismissal
+    $this->travel(5)->days();
+
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.responses.store', 'reprompt-submit'), [
+            'answers' => ['score' => 5],
+        ])
+        ->assertCreated();
+
+    expect(SurveyDismissal::query()->forSurvey('reprompt-submit')->forRespondent($user)->count())->toBe(0)
+        ->and(SurveyResponse::query()->forSurvey('reprompt-submit')->forRespondent($user)->count())->toBe(1)
+        ->and(SimpleSurveys::isEligible('reprompt-submit', $user))->toBeFalse();
 });

@@ -56,18 +56,25 @@ final class SurveySubmissionController
             abort(403, 'Survey is not active.');
         }
 
+        $existingDismissal = null;
+
         if ($existingRecord !== null) {
-            $alreadyInteracted = SurveyResponse::query()
+            $alreadyCompleted = SurveyResponse::query()
                 ->forSurvey($existingRecord)
                 ->forRespondent($user)
-                ->exists()
-                || SurveyDismissal::query()
-                    ->forSurvey($existingRecord)
-                    ->forRespondent($user)
-                    ->exists();
+                ->exists();
 
-            if ($alreadyInteracted) {
-                abort(409, 'Survey has already been submitted or dismissed.');
+            if ($alreadyCompleted) {
+                abort(409, 'Survey has already been submitted.');
+            }
+
+            $existingDismissal = SurveyDismissal::query()
+                ->forSurvey($existingRecord)
+                ->forRespondent($user)
+                ->first();
+
+            if ($existingDismissal !== null && ! $survey->isDismissalExpired($existingDismissal->dismissed_at)) {
+                abort(409, 'Survey has already been dismissed.');
             }
         }
 
@@ -85,8 +92,12 @@ final class SurveySubmissionController
         ], static fn (mixed $value): bool => $value !== null);
 
         /** @var SurveyResponse $response */
-        $response = DB::transaction(function () use ($survey, $user, $answers, $metadata): SurveyResponse {
+        $response = DB::transaction(function () use ($survey, $user, $answers, $metadata, $existingDismissal): SurveyResponse {
             $record = $this->synchronizer->sync($survey);
+
+            if ($existingDismissal !== null) {
+                $existingDismissal->delete();
+            }
 
             $response = SurveyResponse::query()->create([
                 'survey_id' => $record->getKey(),

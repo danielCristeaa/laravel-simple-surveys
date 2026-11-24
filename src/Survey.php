@@ -6,8 +6,10 @@ namespace DanielCristea\SimpleSurveys;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Carbon\CarbonInterval;
 use Closure;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
+use DateInterval;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +37,8 @@ final class Survey
     private bool $isClosed = false;
 
     private bool $dismissible = true;
+
+    private ?CarbonInterval $repromptAfter = null;
 
     private int $priority = 0;
 
@@ -145,6 +149,63 @@ final class Survey
         return $this;
     }
 
+    public function repromptAfter(DateInterval|int|null $interval): self
+    {
+        if ($interval === null) {
+            $this->repromptAfter = null;
+
+            return $this;
+        }
+
+        if (is_int($interval)) {
+            return $this->repromptAfterDays($interval);
+        }
+
+        $converted = CarbonInterval::instance($interval);
+        $now = CarbonImmutable::now();
+
+        if (! $now->add($converted)->greaterThan($now)) {
+            throw new InvalidArgumentException('Re-prompt interval must be positive.');
+        }
+
+        $this->repromptAfter = $converted;
+
+        return $this;
+    }
+
+    public function repromptAfterDays(int $days): self
+    {
+        if ($days <= 0) {
+            throw new InvalidArgumentException('Re-prompt days must be greater than zero.');
+        }
+
+        $this->repromptAfter = CarbonInterval::days($days);
+
+        return $this;
+    }
+
+    public function repromptAfterHours(int $hours): self
+    {
+        if ($hours <= 0) {
+            throw new InvalidArgumentException('Re-prompt hours must be greater than zero.');
+        }
+
+        $this->repromptAfter = CarbonInterval::hours($hours);
+
+        return $this;
+    }
+
+    public function repromptAfterMinutes(int $minutes): self
+    {
+        if ($minutes <= 0) {
+            throw new InvalidArgumentException('Re-prompt minutes must be greater than zero.');
+        }
+
+        $this->repromptAfter = CarbonInterval::minutes($minutes);
+
+        return $this;
+    }
+
     public function priority(int $priority): self
     {
         $this->priority = $priority;
@@ -244,6 +305,24 @@ final class Survey
     public function isDismissible(): bool
     {
         return $this->dismissible;
+    }
+
+    public function getRepromptAfter(): ?CarbonInterval
+    {
+        return $this->repromptAfter;
+    }
+
+    public function isDismissalExpired(CarbonInterface $dismissedAt, ?CarbonInterface $now = null): bool
+    {
+        if ($this->repromptAfter === null) {
+            return false;
+        }
+
+        $reference = $now !== null ? CarbonImmutable::instance($now) : CarbonImmutable::now();
+
+        return CarbonImmutable::instance($dismissedAt)
+            ->add($this->repromptAfter)
+            ->lessThanOrEqualTo($reference);
     }
 
     public function getPriority(): int

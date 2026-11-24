@@ -547,7 +547,11 @@
             <div class="lss-card-footer">
                 @if ($activeSurvey->isDismissible())
                     <button type="button" class="lss-btn-link" data-lss-dismiss>
-                        Don't show again
+                        @if ($activeSurvey->getRepromptAfter() !== null)
+                            Remind me later
+                        @else
+                            Don't show again
+                        @endif
                     </button>
                 @else
                     <span></span>

@@ -45,14 +45,15 @@ final class SurveyDismissalController
         }
 
         $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
+        $existingDismissal = null;
 
         if ($existingRecord !== null) {
-            $alreadyDismissed = SurveyDismissal::query()
+            $existingDismissal = SurveyDismissal::query()
                 ->forSurvey($existingRecord)
                 ->forRespondent($user)
-                ->exists();
+                ->first();
 
-            if ($alreadyDismissed) {
+            if ($existingDismissal !== null && ! $survey->isDismissalExpired($existingDismissal->dismissed_at)) {
                 return $request->expectsJson()
                     ? new JsonResponse(['status' => 'dismissed', 'survey_key' => $survey->key()])
                     : back();
@@ -73,8 +74,16 @@ final class SurveyDismissalController
         }
 
         /** @var SurveyDismissal $dismissal */
-        $dismissal = DB::transaction(function () use ($survey, $user): SurveyDismissal {
+        $dismissal = DB::transaction(function () use ($survey, $user, $existingDismissal): SurveyDismissal {
             $record = $this->synchronizer->sync($survey);
+
+            if ($existingDismissal !== null) {
+                $existingDismissal->update([
+                    'dismissed_at' => now(),
+                ]);
+
+                return $existingDismissal;
+            }
 
             return SurveyDismissal::query()->create([
                 'survey_id' => $record->getKey(),

@@ -42,7 +42,7 @@ final class SurveyEligibilityResolver
             return null;
         }
 
-        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all(), $recordsByKey);
+        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->all(), $recordsByKey, $now);
 
         foreach ($activeSurveys as $survey) {
             if (in_array($survey->key(), $excludedKeys, true)) {
@@ -81,7 +81,7 @@ final class SurveyEligibilityResolver
             return new Collection;
         }
 
-        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->keys()->all(), $recordsByKey);
+        $excludedKeys = $this->excludedSurveyKeys($user, $activeSurveys->all(), $recordsByKey, $now);
 
         /** @var array<int, Survey> $eligible */
         $eligible = [];
@@ -111,7 +111,7 @@ final class SurveyEligibilityResolver
             return false;
         }
 
-        $excludedKeys = $this->excludedSurveyKeys($user, [$survey->key()], $recordsByKey);
+        $excludedKeys = $this->excludedSurveyKeys($user, [$survey->key() => $survey], $recordsByKey, $now);
 
         if (in_array($survey->key(), $excludedKeys, true)) {
             return false;
@@ -166,16 +166,16 @@ final class SurveyEligibilityResolver
     }
 
     /**
-     * @param  array<int, string>  $surveyKeys
+     * @param  array<string, Survey>  $surveysByKey
      * @param  array<string, SurveyRecord>  $recordsByKey
      * @return array<int, string>
      */
-    private function excludedSurveyKeys(Model $user, array $surveyKeys, array $recordsByKey): array
+    private function excludedSurveyKeys(Model $user, array $surveysByKey, array $recordsByKey, ?CarbonInterface $now = null): array
     {
         /** @var array<int, string> $recordMap */
         $recordMap = [];
 
-        foreach ($surveyKeys as $key) {
+        foreach ($surveysByKey as $key => $survey) {
             if (isset($recordsByKey[$key])) {
                 $recordMap[(int) $recordsByKey[$key]->getKey()] = $key;
             }
@@ -194,12 +194,22 @@ final class SurveyEligibilityResolver
             ->pluck('survey_id')
             ->all();
 
-        /** @var array<int, int> $dismissedIds */
-        $dismissedIds = SurveyDismissal::query()
+        $dismissals = SurveyDismissal::query()
             ->forRespondent($user)
             ->whereIn('survey_id', $recordIds)
-            ->pluck('survey_id')
-            ->all();
+            ->get(['survey_id', 'dismissed_at']);
+
+        /** @var array<int, int> $dismissedIds */
+        $dismissedIds = [];
+
+        foreach ($dismissals as $dismissal) {
+            $surveyKey = $recordMap[(int) $dismissal->survey_id] ?? null;
+            $survey = $surveyKey !== null ? ($surveysByKey[$surveyKey] ?? null) : null;
+
+            if ($survey === null || ! $survey->isDismissalExpired($dismissal->dismissed_at, $now)) {
+                $dismissedIds[] = (int) $dismissal->survey_id;
+            }
+        }
 
         $excludedIds = array_unique([...$respondedIds, ...$dismissedIds]);
 

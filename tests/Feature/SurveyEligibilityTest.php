@@ -154,3 +154,32 @@ it('respects date windows and priority ordering when multiple surveys match', fu
         ])
         ->and(SimpleSurveys::isEligible('unknown-survey', $user, $now))->toBeFalse();
 });
+
+it('re-prompts eligible users after the dismissal cooldown expires', function (): void {
+    $user = User::create(['name' => 'Pat', 'email' => 'pat@example.com']);
+    $dismissedAt = CarbonImmutable::parse('2026-11-01 10:00:00');
+
+    SimpleSurveys::register(
+        Survey::make('reprompt-survey')
+            ->repromptAfterDays(14)
+    );
+
+    $record = SimpleSurveys::sync()->firstOrFail();
+
+    SurveyDismissal::query()->create([
+        'survey_id' => $record->id,
+        'respondent_type' => $user->getMorphClass(),
+        'respondent_id' => $user->id,
+        'dismissed_at' => $dismissedAt,
+    ]);
+
+    $day13 = $dismissedAt->addDays(13);
+    $day14 = $dismissedAt->addDays(14);
+
+    expect(SimpleSurveys::forUser($user, $day13))->toBeNull()
+        ->and(SimpleSurveys::eligibleFor($user, $day13))->toBeEmpty()
+        ->and(SimpleSurveys::isEligible('reprompt-survey', $user, $day13))->toBeFalse()
+        ->and(SimpleSurveys::forUser($user, $day14)?->key())->toBe('reprompt-survey')
+        ->and(SimpleSurveys::eligibleFor($user, $day14)->map->key()->all())->toBe(['reprompt-survey'])
+        ->and(SimpleSurveys::isEligible('reprompt-survey', $user, $day14))->toBeTrue();
+});

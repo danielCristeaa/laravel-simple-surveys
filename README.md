@@ -146,6 +146,7 @@ Surveys only target **authenticated users** and automatically exclude users who 
 - **Eloquent query targeting:** `->target(fn (Builder $query) => ...)` — safely nested inside `WHERE id = ? AND (...)` so `orWhere` clauses cannot leak across users.
 - **Direct user predicate:** `->targetUser(fn ($user): bool => $user->isBetaTester())` — evaluated in memory with zero extra queries.
 - **Scheduling & flags:** `->startsAt(...)`, `->endsAt(...)`, `->until(...)`, `->activeBetween($start, $end)`, `->draft()`, `->closed()`, `->dismissible(false)`, `->priority(int)`.
+- **Re-prompt after dismissal:** `->repromptAfterDays(14)` (also `->repromptAfterHours(...)`, `->repromptAfterMinutes(...)`, or `->repromptAfter(CarbonInterval::weeks(2))`) re-shows a dismissed survey once the cooldown expires (switches the dismiss button label to "Remind me later"). Completed responses never re-prompt.
 
 ## Admin Results Dashboard
 

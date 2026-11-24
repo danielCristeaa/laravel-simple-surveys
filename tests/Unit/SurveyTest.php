@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterval;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
@@ -65,4 +66,38 @@ it('registers questions and guards against duplicate keys', function (): void {
 it('throws when survey key is empty', function (): void {
     expect(fn () => Survey::make(''))
         ->toThrow(InvalidArgumentException::class);
+});
+
+it('configures reprompt cooldowns and evaluates dismissal expiration accurately', function (): void {
+    $dismissedAt = CarbonImmutable::parse('2026-11-01 12:00:00');
+
+    $neverReprompt = Survey::make('once');
+    expect($neverReprompt->getRepromptAfter())->toBeNull()
+        ->and($neverReprompt->isDismissalExpired($dismissedAt, $dismissedAt->addYear()))->toBeFalse();
+
+    $byDays = Survey::make('days')->repromptAfterDays(14);
+    expect($byDays->getRepromptAfter()?->totalDays)->toEqual(14)
+        ->and($byDays->isDismissalExpired($dismissedAt, $dismissedAt->addDays(13)->addHours(23)))->toBeFalse()
+        ->and($byDays->isDismissalExpired($dismissedAt, $dismissedAt->addDays(14)))->toBeTrue()
+        ->and($byDays->isDismissalExpired($dismissedAt, $dismissedAt->addDays(20)))->toBeTrue();
+
+    $byHours = Survey::make('hours')->repromptAfterHours(6);
+    expect($byHours->isDismissalExpired($dismissedAt, $dismissedAt->addHours(5)))->toBeFalse()
+        ->and($byHours->isDismissalExpired($dismissedAt, $dismissedAt->addHours(6)))->toBeTrue();
+
+    $byMinutes = Survey::make('minutes')->repromptAfterMinutes(30);
+    expect($byMinutes->isDismissalExpired($dismissedAt, $dismissedAt->addMinutes(29)))->toBeFalse()
+        ->and($byMinutes->isDismissalExpired($dismissedAt, $dismissedAt->addMinutes(30)))->toBeTrue();
+
+    $byInterval = Survey::make('interval')->repromptAfter(CarbonInterval::weeks(1));
+    expect($byInterval->isDismissalExpired($dismissedAt, $dismissedAt->addDays(6)))->toBeFalse()
+        ->and($byInterval->isDismissalExpired($dismissedAt, $dismissedAt->addDays(7)))->toBeTrue();
+
+    $cleared = Survey::make('cleared')->repromptAfter(5)->repromptAfter(null);
+    expect($cleared->getRepromptAfter())->toBeNull();
+
+    expect(fn () => Survey::make('bad-days')->repromptAfterDays(0))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => Survey::make('bad-hours')->repromptAfterHours(-1))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => Survey::make('bad-minutes')->repromptAfterMinutes(0))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => Survey::make('bad-interval')->repromptAfter(CarbonInterval::seconds(0)))->toThrow(InvalidArgumentException::class);
 });
