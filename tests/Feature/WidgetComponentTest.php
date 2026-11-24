@@ -59,6 +59,8 @@ it('renders the bottom-right widget with all question types for an eligible user
 
     expect($html)
         ->toContain('lss-pos-bottom-right')
+        ->toContain('wire:ignore')
+        ->toContain('banner.remove()')
         ->toContain('Got 30 seconds? Share feedback!')
         ->toContain('Product Feedback')
         ->toContain('Help us build better features.')

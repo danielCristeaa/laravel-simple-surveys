@@ -7,6 +7,7 @@
 <div
     id="{{ $widgetId }}"
     class="lss-root lss-pos-{{ $position }}"
+    wire:ignore
     data-lss-widget
     data-lss-submit-url="{{ $submitUrl }}"
     data-lss-dismiss-url="{{ $dismissUrl }}"
@@ -587,6 +588,16 @@
             var thanksMsg = root.querySelector('[data-lss-thanks-msg]');
             var submitUrl = root.dataset.lssSubmitUrl;
             var dismissUrl = root.dataset.lssDismissUrl;
+            var isSubmitted = false;
+            var removeTimer = null;
+
+            function removeWidget() {
+                if (removeTimer !== null) {
+                    clearTimeout(removeTimer);
+                    removeTimer = null;
+                }
+                root.remove();
+            }
 
             function getCsrfToken() {
                 var tokenInput = form ? form.querySelector('input[name="_token"]') : null;
@@ -622,6 +633,10 @@
             }
 
             function closeCard() {
+                if (isSubmitted) {
+                    removeWidget();
+                    return;
+                }
                 if (card) card.classList.add('lss-hidden');
                 if (banner) banner.classList.remove('lss-hidden');
                 if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
@@ -638,6 +653,12 @@
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape' && card && !card.classList.contains('lss-hidden')) {
                     closeCard();
+                }
+            });
+
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted && isSubmitted) {
+                    removeWidget();
                 }
             });
 
@@ -712,6 +733,13 @@
                         });
                     }).then(function (result) {
                         if (result.ok) {
+                            isSubmitted = true;
+                            if (banner) {
+                                banner.remove();
+                            }
+                            if (closeBtn) {
+                                closeBtn.setAttribute('title', 'Close');
+                            }
                             form.classList.add('lss-hidden');
                             if (thanksMsg && result.data && result.data.message) {
                                 thanksMsg.textContent = result.data.message;
@@ -719,9 +747,7 @@
                             if (thanksBox) {
                                 thanksBox.classList.remove('lss-hidden');
                             }
-                            setTimeout(function () {
-                                root.remove();
-                            }, 3500);
+                            removeTimer = setTimeout(removeWidget, 3500);
                             return;
                         }
 
