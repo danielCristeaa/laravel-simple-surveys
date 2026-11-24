@@ -9,6 +9,7 @@ use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
+use DanielCristea\SimpleSurveys\Services\SurveySerializer;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
 use Illuminate\Support\Facades\Blade;
@@ -35,6 +36,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyValidator::class);
         $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SurveyResultsAggregator::class);
+        $this->app->singleton(SurveySerializer::class);
         $this->app->singleton(SimpleSurveys::class);
     }
 
@@ -53,11 +55,24 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         }
 
         $prefix = config('simple-surveys.routes.prefix', 'simple-surveys');
-        $middleware = config('simple-surveys.routes.middleware', ['web', 'auth']);
+        $resolvedPrefix = is_string($prefix) ? $prefix : 'simple-surveys';
 
-        Route::prefix(is_string($prefix) ? $prefix : 'simple-surveys')
-            ->middleware(is_array($middleware) ? $middleware : ['web', 'auth'])
+        $middleware = config('simple-surveys.routes.middleware', ['web', 'auth']);
+        $resolvedMiddleware = is_array($middleware) ? $middleware : ['web', 'auth'];
+
+        Route::prefix($resolvedPrefix)
+            ->middleware($resolvedMiddleware)
             ->group(__DIR__.'/../routes/web.php');
+
+        $readOnlyMiddleware = array_values(array_filter(
+            $resolvedMiddleware,
+            static fn (mixed $item): bool => ! is_string($item)
+                || ($item !== 'auth' && ! str_starts_with($item, 'auth:')),
+        ));
+
+        Route::prefix($resolvedPrefix)
+            ->middleware($readOnlyMiddleware)
+            ->group(__DIR__.'/../routes/eligible.php');
     }
 
     private function registerAdminRoutes(): void

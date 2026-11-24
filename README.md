@@ -127,9 +127,24 @@ Optional attributes:
 ```blade
 {{-- Render a specific survey (if eligible) in the bottom-left corner --}}
 <x-simple-surveys::widget survey="onboarding-feedback" position="bottom-left" />
+
+{{-- Enable dynamic SPA mode for Inertia.js / Livewire wire:navigate --}}
+<x-simple-surveys::widget dynamic />
 ```
 
 The widget renders nothing for guests or authenticated users who have no eligible surveys (0 DB queries for guests).
+
+#### SPA / Dynamic Mode (`dynamic`)
+
+In Inertia.js, Livewire (`wire:navigate` / `@persist`), or other SPAs where your root Blade layout does not reload across visits, pass `dynamic`:
+
+```blade
+<x-simple-surveys::widget dynamic />
+```
+
+This keeps a lightweight mount container in the DOM that automatically refreshes eligibility via `GET /simple-surveys/widget` on `inertia:navigate`, `livewire:navigated`, or when you dispatch `window.dispatchEvent(new CustomEvent('simple-surveys:refresh'))`.
+
+For custom React/Vue/Svelte frontends that want raw JSON instead of the built-in Blade widget, query `GET /simple-surveys/eligible` (returns `200 { "survey": ... }` or `{ "survey": null }`).
 
 ### 3. Sync Surveys to the Database (Optional)
 

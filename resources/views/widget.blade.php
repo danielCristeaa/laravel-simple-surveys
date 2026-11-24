@@ -672,6 +672,9 @@
             }
 
             document.addEventListener('keydown', function (event) {
+                if (!root.isConnected) {
+                    return;
+                }
                 if (event.key === 'Escape' && card && !card.classList.contains('lss-hidden')) {
                     closeCard();
                 }
