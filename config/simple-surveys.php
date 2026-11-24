@@ -8,8 +8,8 @@ return [
     | Database Table Names
     |--------------------------------------------------------------------------
     |
-    | The tables used to store surveys, questions, responses, answers, and
-    | dismissals.
+    | The tables used to store surveys, questions, responses, answers,
+    | dismissals, and survey opens.
     |
     */
     'tables' => [
@@ -18,6 +18,7 @@ return [
         'responses' => 'simple_survey_responses',
         'answers' => 'simple_survey_answers',
         'dismissals' => 'simple_survey_dismissals',
+        'opens' => 'simple_survey_opens',
     ],
 
     /*

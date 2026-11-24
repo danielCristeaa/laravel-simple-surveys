@@ -19,6 +19,8 @@ final class Widget extends Component
 
     public ?string $dismissUrl = null;
 
+    public ?string $openUrl = null;
+
     public string $position;
 
     public function __construct(
@@ -51,6 +53,7 @@ final class Widget extends Component
         if ($this->activeSurvey !== null) {
             $this->submitUrl = route('simple-surveys.responses.store', $this->activeSurvey->key());
             $this->dismissUrl = route('simple-surveys.dismiss', $this->activeSurvey->key());
+            $this->openUrl = route('simple-surveys.open', $this->activeSurvey->key());
         }
     }
 

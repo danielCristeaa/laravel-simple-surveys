@@ -18,7 +18,6 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $respondent_type
  * @property int|string $respondent_id
  * @property array<string, mixed>|null $metadata
- * @property CarbonInterface $completed_at
  * @property CarbonInterface|null $created_at
  * @property CarbonInterface|null $updated_at
  * @property-read SurveyRecord $survey
@@ -33,7 +32,6 @@ class SurveyResponse extends Model
         'respondent_type',
         'respondent_id',
         'metadata',
-        'completed_at',
     ];
 
     public function getTable(): string
@@ -52,7 +50,6 @@ class SurveyResponse extends Model
     {
         return [
             'metadata' => 'array',
-            'completed_at' => 'datetime',
         ];
     }
 

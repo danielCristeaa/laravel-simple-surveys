@@ -7,7 +7,9 @@
         use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
         $totalSurveys = $summaries->count();
         $activeSurveys = $summaries->filter(fn (array $s): bool => $s['status'] === SurveyStatus::Active)->count();
+        $totalOpens = $summaries->sum('opens_count');
         $totalResponses = $summaries->sum('responses_count');
+        $totalAbandoned = $summaries->sum('abandoned_count');
         $totalDismissals = $summaries->sum('dismissals_count');
     @endphp
 
@@ -28,8 +30,16 @@
             <div class="kpi-value">{{ $activeSurveys }}</div>
         </div>
         <div class="card">
+            <div class="kpi-label">Total Opens</div>
+            <div class="kpi-value">{{ $totalOpens }}</div>
+        </div>
+        <div class="card">
             <div class="kpi-label">Total Responses</div>
             <div class="kpi-value">{{ $totalResponses }}</div>
+        </div>
+        <div class="card">
+            <div class="kpi-label">Abandoned</div>
+            <div class="kpi-value">{{ $totalAbandoned }}</div>
         </div>
         <div class="card">
             <div class="kpi-label">Total Dismissals</div>
@@ -50,7 +60,9 @@
                             <th>Survey</th>
                             <th>Status</th>
                             <th>Questions</th>
+                            <th>Opened</th>
                             <th>Responses</th>
+                            <th>Abandoned</th>
                             <th>Dismissals</th>
                             <th>Completion Rate</th>
                             <th>Actions</th>
@@ -74,7 +86,9 @@
                                     @endif
                                 </td>
                                 <td>{{ $survey['questions_count'] }}</td>
+                                <td>{{ $survey['opens_count'] }}</td>
                                 <td><strong>{{ $survey['responses_count'] }}</strong></td>
+                                <td>{{ $survey['abandoned_count'] }}</td>
                                 <td>{{ $survey['dismissals_count'] }}</td>
                                 <td>
                                     @if ($survey['completion_rate'] !== null)
@@ -97,10 +111,10 @@
                                                 data-confirm-title="End survey now?"
                                                 data-confirm-message="Are you sure you want to end this survey now? Users will no longer see it."
                                                 data-confirm-button="End Survey"
-                                                data-confirm-variant="danger"
+                                                data-confirm-variant="warning"
                                             >
                                                 @csrf
-                                                <button type="submit" class="btn btn-danger">End Now</button>
+                                                <button type="submit" class="btn btn-warning">End Now</button>
                                             </form>
                                         @elseif ($survey['registered'] && $survey['status'] === SurveyStatus::Closed)
                                             <form

@@ -68,6 +68,7 @@ it('renders the bottom-right widget with all question types for an eligible user
         ->toContain('data-lss-dismiss')
         ->toContain(route('simple-surveys.responses.store', 'product-survey'))
         ->toContain(route('simple-surveys.dismiss', 'product-survey'))
+        ->toContain(route('simple-surveys.open', 'product-survey'))
         ->toContain('name="answers[role]"')
         ->toContain('name="answers[notes]"')
         ->toContain('name="answers[team_size]"')
@@ -102,7 +103,6 @@ it('supports specific survey attribute, bottom-left position, and non-dismissibl
         'survey_id' => $record->id,
         'respondent_type' => $user->getMorphClass(),
         'respondent_id' => $user->id,
-        'completed_at' => now(),
     ]);
 
     expect(trim(Blade::render('<x-simple-surveys::widget survey="specific-one" />')))->toBe('');

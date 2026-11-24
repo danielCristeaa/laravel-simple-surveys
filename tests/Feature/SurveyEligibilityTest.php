@@ -54,7 +54,6 @@ it('excludes surveys already completed or dismissed by the user', function (): v
         'survey_id' => $firstRecord->id,
         'respondent_type' => $user->getMorphClass(),
         'respondent_id' => $user->id,
-        'completed_at' => now(),
     ]);
 
     SurveyDismissal::query()->create([
@@ -68,7 +67,6 @@ it('excludes surveys already completed or dismissed by the user', function (): v
         'survey_id' => $thirdRecord->id,
         'respondent_type' => $otherUser->getMorphClass(),
         'respondent_id' => $otherUser->id,
-        'completed_at' => now(),
     ]);
 
     expect(SimpleSurveys::forUser($user)?->key())->toBe('third')

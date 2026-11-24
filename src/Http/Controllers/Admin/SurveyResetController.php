@@ -37,12 +37,13 @@ final class SurveyResetController
 
                 $record->responses()->delete();
                 $record->dismissals()->delete();
+                $record->opens()->delete();
             });
         }
 
         return back()->with(
             'simple_surveys_admin_status',
-            sprintf('All responses and dismissals for "%s" have been reset.', $title),
+            sprintf('All responses, dismissals, and opens for "%s" have been reset.', $title),
         );
     }
 }

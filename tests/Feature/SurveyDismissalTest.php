@@ -49,7 +49,6 @@ it('forbids dismissing a non-dismissible survey or an already completed survey',
         'survey_id' => $record->id,
         'respondent_type' => $user->getMorphClass(),
         'respondent_id' => $user->id,
-        'completed_at' => now(),
     ]);
 
     $this->actingAs($user)

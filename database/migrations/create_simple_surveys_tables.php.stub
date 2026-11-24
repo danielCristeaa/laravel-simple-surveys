@@ -25,6 +25,9 @@ return new class extends Migration
         /** @var string $dismissalsTable */
         $dismissalsTable = config('simple-surveys.tables.dismissals', 'simple_survey_dismissals');
 
+        /** @var string $opensTable */
+        $opensTable = config('simple-surveys.tables.opens', 'simple_survey_opens');
+
         /** @var string $keyType */
         $keyType = config('simple-surveys.respondent_key_type', 'id');
 
@@ -70,7 +73,6 @@ return new class extends Migration
             };
 
             $table->json('metadata')->nullable();
-            $table->timestamp('completed_at');
             $table->timestamps();
 
             $table->unique(
@@ -110,10 +112,34 @@ return new class extends Migration
                 'lss_dismissal_respondent_unique',
             );
         });
+
+        Schema::create($opensTable, function (Blueprint $table) use ($surveysTable, $keyType): void {
+            $table->id();
+            $table->foreignId('survey_id')->constrained($surveysTable)->cascadeOnDelete();
+
+            match ($keyType) {
+                'uuid' => $table->uuidMorphs('respondent'),
+                'ulid' => $table->ulidMorphs('respondent'),
+                default => $table->morphs('respondent'),
+            };
+
+            $table->unsignedInteger('open_count')->default(1);
+            $table->timestamp('first_opened_at');
+            $table->timestamp('last_opened_at');
+            $table->timestamps();
+
+            $table->unique(
+                ['survey_id', 'respondent_type', 'respondent_id'],
+                'lss_open_respondent_unique',
+            );
+        });
     }
 
     public function down(): void
     {
+        /** @var string $opensTable */
+        $opensTable = config('simple-surveys.tables.opens', 'simple_survey_opens');
+
         /** @var string $dismissalsTable */
         $dismissalsTable = config('simple-surveys.tables.dismissals', 'simple_survey_dismissals');
 
@@ -129,6 +155,7 @@ return new class extends Migration
         /** @var string $surveysTable */
         $surveysTable = config('simple-surveys.tables.surveys', 'simple_surveys');
 
+        Schema::dropIfExists($opensTable);
         Schema::dropIfExists($dismissalsTable);
         Schema::dropIfExists($answersTable);
         Schema::dropIfExists($responsesTable);

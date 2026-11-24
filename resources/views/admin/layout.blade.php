@@ -86,7 +86,7 @@
         }
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
@@ -148,6 +148,12 @@
             color: #b91c1c;
         }
         .btn-danger:hover { background: #fee2e2; color: #991b1b; }
+        .btn-warning {
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #b45309;
+        }
+        .btn-warning:hover { background: #fef3c7; color: #92400e; }
         .btn-success {
             background: #f0fdf4;
             border-color: #bbf7d0;
@@ -217,6 +223,10 @@
             background: #fef2f2;
             color: #dc2626;
         }
+        .modal-icon-warning {
+            background: #fffbeb;
+            color: #d97706;
+        }
         .modal-icon-success {
             background: #f0fdf4;
             color: #16a34a;
@@ -245,6 +255,12 @@
             color: #ffffff;
         }
         .btn-danger-solid:hover { background: #b91c1c; color: #ffffff; }
+        .btn-warning-solid {
+            background: #d97706;
+            border-color: #d97706;
+            color: #ffffff;
+        }
+        .btn-warning-solid:hover { background: #b45309; color: #ffffff; }
         .btn-success-solid {
             background: #16a34a;
             border-color: #16a34a;
@@ -398,6 +414,7 @@
             var pendingForm = null;
 
             var dangerSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+            var warningSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
             var successSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
             function openModal(form) {
@@ -412,6 +429,10 @@
                     iconEl.className = 'modal-icon modal-icon-success';
                     iconEl.innerHTML = successSvg;
                     confirmBtn.className = 'btn btn-success-solid';
+                } else if (variant === 'warning') {
+                    iconEl.className = 'modal-icon modal-icon-warning';
+                    iconEl.innerHTML = warningSvg;
+                    confirmBtn.className = 'btn btn-warning-solid';
                 } else {
                     iconEl.className = 'modal-icon modal-icon-danger';
                     iconEl.innerHTML = dangerSvg;

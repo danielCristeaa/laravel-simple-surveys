@@ -30,10 +30,10 @@
                     data-confirm-title="End survey now?"
                     data-confirm-message="Are you sure you want to end this survey now? Users will no longer see it."
                     data-confirm-button="End Survey"
-                    data-confirm-variant="danger"
+                    data-confirm-variant="warning"
                 >
                     @csrf
-                    <button type="submit" class="btn btn-danger">End Survey Now</button>
+                    <button type="submit" class="btn btn-warning">End Survey Now</button>
                 </form>
             @elseif ($results['registered'] && $results['status'] === \DanielCristea\SimpleSurveys\Enums\SurveyStatus::Closed)
                 <form
@@ -50,18 +50,18 @@
                 </form>
             @endif
 
-            @if ($results['responses_count'] > 0 || $results['dismissals_count'] > 0)
+            @if ($results['responses_count'] > 0 || $results['dismissals_count'] > 0 || $results['opens_count'] > 0)
                 <form
                     method="POST"
                     action="{{ route('simple-surveys.admin.reset', $results['key']) }}"
                     class="inline-form"
                     data-confirm-title="Reset survey responses?"
-                    data-confirm-message="This will permanently delete all submitted responses, answers, and dismissals for this survey. Eligible users will be able to see and take it again."
+                    data-confirm-message="This will permanently delete all submitted responses, answers, dismissals, and open tracking for this survey. Eligible users will be able to see and take it again."
                     data-confirm-button="Reset Responses"
                     data-confirm-variant="danger"
                 >
                     @csrf
-                    <button type="submit" class="btn btn-danger">Reset Responses</button>
+                    <button type="submit" class="btn btn-danger-solid">Reset Responses</button>
                 </form>
             @endif
 
@@ -77,6 +77,14 @@
         <div class="card">
             <div class="kpi-label">Responses</div>
             <div class="kpi-value">{{ $results['responses_count'] }}</div>
+        </div>
+        <div class="card">
+            <div class="kpi-label">Opened</div>
+            <div class="kpi-value">{{ $results['opens_count'] }}</div>
+        </div>
+        <div class="card">
+            <div class="kpi-label">Abandoned</div>
+            <div class="kpi-value">{{ $results['abandoned_count'] }}</div>
         </div>
         <div class="card">
             <div class="kpi-label">Dismissals</div>
@@ -176,7 +184,7 @@
                                 <td>
                                     <span class="muted" style="font-size: 12px;">#{{ $response->respondent_id }}</span>
                                 </td>
-                                <td style="white-space: nowrap;">{{ $response->completed_at->toDateTimeString() }}</td>
+                                <td style="white-space: nowrap;">{{ $response->created_at?->toDateTimeString() ?? '—' }}</td>
                                 @foreach ($results['questions'] as $question)
                                     @php
                                         $val = $response->answerFor($question['key']);

@@ -76,7 +76,6 @@ it('stores relational responses, typed answers, and dismissals with scopes', fun
         'respondent_type' => $alice->getMorphClass(),
         'respondent_id' => $alice->id,
         'metadata' => ['url' => '/dashboard'],
-        'completed_at' => now(),
     ]);
 
     $questions = $record->questions->keyBy('key');
@@ -131,14 +130,12 @@ it('enforces unique respondent constraint per survey on responses and dismissals
         'survey_id' => $record->id,
         'respondent_type' => $user->getMorphClass(),
         'respondent_id' => $user->id,
-        'completed_at' => now(),
     ]);
 
     expect(fn () => SurveyResponse::query()->create([
         'survey_id' => $record->id,
         'respondent_type' => $user->getMorphClass(),
         'respondent_id' => $user->id,
-        'completed_at' => now(),
     ]))->toThrow(QueryException::class);
 
     SurveyDismissal::query()->create([

@@ -11,6 +11,7 @@
     data-lss-widget
     data-lss-submit-url="{{ $submitUrl }}"
     data-lss-dismiss-url="{{ $dismissUrl }}"
+    data-lss-open-url="{{ $openUrl }}"
     data-lss-thank-you="{{ $activeSurvey->getThankYouMessage() }}"
 >
     <style>
@@ -588,7 +589,9 @@
             var thanksMsg = root.querySelector('[data-lss-thanks-msg]');
             var submitUrl = root.dataset.lssSubmitUrl;
             var dismissUrl = root.dataset.lssDismissUrl;
+            var openUrl = root.dataset.lssOpenUrl;
             var isSubmitted = false;
+            var hasTrackedOpen = false;
             var removeTimer = null;
 
             function removeWidget() {
@@ -630,6 +633,20 @@
                 if (banner) banner.classList.add('lss-hidden');
                 if (card) card.classList.remove('lss-hidden');
                 if (openBtn) openBtn.setAttribute('aria-expanded', 'true');
+
+                if (!hasTrackedOpen && openUrl) {
+                    hasTrackedOpen = true;
+                    fetch(openUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': getCsrfToken()
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({})
+                    }).catch(function () {});
+                }
             }
 
             function closeCard() {

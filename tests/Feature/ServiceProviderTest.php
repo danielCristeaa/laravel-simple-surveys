@@ -12,6 +12,7 @@ it('loads default package configuration', function (): void {
         'responses' => 'simple_survey_responses',
         'answers' => 'simple_survey_answers',
         'dismissals' => 'simple_survey_dismissals',
+        'opens' => 'simple_survey_opens',
     ])
         ->and(config('simple-surveys.respondent_key_type'))->toBe('id')
         ->and(config('simple-surveys.guard'))->toBeNull()

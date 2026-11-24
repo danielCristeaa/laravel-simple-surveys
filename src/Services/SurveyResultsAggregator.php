@@ -7,10 +7,12 @@ namespace DanielCristea\SimpleSurveys\Services;
 use DanielCristea\SimpleSurveys\Enums\QuestionType;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
+use DanielCristea\SimpleSurveys\Models\SurveyOpen;
 use DanielCristea\SimpleSurveys\Models\SurveyQuestion;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 
 final class SurveyResultsAggregator
@@ -27,6 +29,8 @@ final class SurveyResultsAggregator
      *     status: SurveyStatus,
      *     registered: bool,
      *     questions_count: int,
+     *     opens_count: int,
+     *     abandoned_count: int,
      *     responses_count: int,
      *     dismissals_count: int,
      *     completion_rate: float|null
@@ -35,12 +39,19 @@ final class SurveyResultsAggregator
     public function summaries(): Collection
     {
         $records = SurveyRecord::query()
-            ->withCount(['questions', 'responses', 'dismissals'])
+            ->withCount(['questions', 'responses', 'dismissals', 'opens'])
             ->orderByDesc('priority')
             ->orderBy('title')
             ->get()
             ->keyBy('key');
 
+        /** @var array<int, int> $recordIds */
+        $recordIds = [];
+        foreach ($records as $record) {
+            $recordIds[] = (int) $record->getKey();
+        }
+
+        $abandonedBySurveyId = $this->abandonedCountsBySurveyId($recordIds);
         $registeredSurveys = $this->registry->all();
 
         /** @var array<int, array{
@@ -50,6 +61,8 @@ final class SurveyResultsAggregator
          *     status: SurveyStatus,
          *     registered: bool,
          *     questions_count: int,
+         *     opens_count: int,
+         *     abandoned_count: int,
          *     responses_count: int,
          *     dismissals_count: int,
          *     completion_rate: float|null
@@ -59,8 +72,11 @@ final class SurveyResultsAggregator
         foreach ($registeredSurveys as $survey) {
             /** @var SurveyRecord|null $record */
             $record = $records->get($survey->key());
+            $recordId = $record !== null ? (int) $record->getKey() : null;
             $responsesCount = $record !== null ? (int) $record->getAttribute('responses_count') : 0;
             $dismissalsCount = $record !== null ? (int) $record->getAttribute('dismissals_count') : 0;
+            $opensCount = $record !== null ? (int) $record->getAttribute('opens_count') : 0;
+            $abandonedCount = $recordId !== null ? ($abandonedBySurveyId[$recordId] ?? 0) : 0;
 
             $summaries[] = [
                 'key' => $survey->key(),
@@ -69,6 +85,8 @@ final class SurveyResultsAggregator
                 'status' => $record !== null ? $record->status : $survey->status(),
                 'registered' => true,
                 'questions_count' => count($survey->getQuestions()),
+                'opens_count' => $opensCount,
+                'abandoned_count' => $abandonedCount,
                 'responses_count' => $responsesCount,
                 'dismissals_count' => $dismissalsCount,
                 'completion_rate' => $this->completionRate($responsesCount, $dismissalsCount),
@@ -81,8 +99,11 @@ final class SurveyResultsAggregator
                 continue;
             }
 
+            $recordId = (int) $record->getKey();
             $responsesCount = (int) $record->getAttribute('responses_count');
             $dismissalsCount = (int) $record->getAttribute('dismissals_count');
+            $opensCount = (int) $record->getAttribute('opens_count');
+            $abandonedCount = $abandonedBySurveyId[$recordId] ?? 0;
 
             $summaries[] = [
                 'key' => $record->key,
@@ -91,6 +112,8 @@ final class SurveyResultsAggregator
                 'status' => SurveyStatus::Closed,
                 'registered' => false,
                 'questions_count' => (int) $record->getAttribute('questions_count'),
+                'opens_count' => $opensCount,
+                'abandoned_count' => $abandonedCount,
                 'responses_count' => $responsesCount,
                 'dismissals_count' => $dismissalsCount,
                 'completion_rate' => $this->completionRate($responsesCount, $dismissalsCount),
@@ -107,6 +130,8 @@ final class SurveyResultsAggregator
      *     description: string|null,
      *     status: SurveyStatus,
      *     registered: bool,
+     *     opens_count: int,
+     *     abandoned_count: int,
      *     responses_count: int,
      *     dismissals_count: int,
      *     completion_rate: float|null,
@@ -119,7 +144,7 @@ final class SurveyResultsAggregator
         $record = SurveyRecord::query()
             ->byKey($surveyKey)
             ->with('questions')
-            ->withCount(['responses', 'dismissals'])
+            ->withCount(['responses', 'dismissals', 'opens'])
             ->first();
 
         $registered = $this->registry->find($surveyKey);
@@ -149,6 +174,8 @@ final class SurveyResultsAggregator
                 'description' => $registered->getDescription(),
                 'status' => $registered->status(),
                 'registered' => true,
+                'opens_count' => 0,
+                'abandoned_count' => 0,
                 'responses_count' => 0,
                 'dismissals_count' => 0,
                 'completion_rate' => null,
@@ -158,8 +185,12 @@ final class SurveyResultsAggregator
         }
 
         /** @var SurveyRecord $record */
+        $recordId = (int) $record->getKey();
         $responsesCount = (int) $record->getAttribute('responses_count');
         $dismissalsCount = (int) $record->getAttribute('dismissals_count');
+        $opensCount = (int) $record->getAttribute('opens_count');
+        $abandonedCounts = $this->abandonedCountsBySurveyId([$recordId]);
+        $abandonedCount = $abandonedCounts[$recordId] ?? 0;
 
         $questionsData = [];
 
@@ -170,7 +201,7 @@ final class SurveyResultsAggregator
         $responses = SurveyResponse::query()
             ->forSurvey($record)
             ->with(['answers.question'])
-            ->latest('completed_at')
+            ->latest('created_at')
             ->paginate($perPage);
 
         return [
@@ -179,6 +210,8 @@ final class SurveyResultsAggregator
             'description' => $registered !== null ? $registered->getDescription() : $record->description,
             'status' => $record->status,
             'registered' => $registered !== null,
+            'opens_count' => $opensCount,
+            'abandoned_count' => $abandonedCount,
             'responses_count' => $responsesCount,
             'dismissals_count' => $dismissalsCount,
             'completion_rate' => $this->completionRate($responsesCount, $dismissalsCount),
@@ -497,6 +530,45 @@ final class SurveyResultsAggregator
             'stats' => null,
             'recent_answers' => $recentAnswers,
         ];
+    }
+
+    /**
+     * @param  array<int, int>  $surveyIds
+     * @return array<int, int>
+     */
+    private function abandonedCountsBySurveyId(array $surveyIds): array
+    {
+        if ($surveyIds === []) {
+            return [];
+        }
+
+        $opensTable = (new SurveyOpen)->getTable();
+        $responsesTable = (new SurveyResponse)->getTable();
+
+        /** @var array<int|string, mixed> $rawCounts */
+        $rawCounts = SurveyOpen::query()
+            ->whereIn('survey_id', $surveyIds)
+            ->whereNotExists(static function (QueryBuilder $query) use ($opensTable, $responsesTable): void {
+                $query->selectRaw('1')
+                    ->from($responsesTable)
+                    ->whereColumn($responsesTable.'.survey_id', $opensTable.'.survey_id')
+                    ->whereColumn($responsesTable.'.respondent_type', $opensTable.'.respondent_type')
+                    ->whereColumn($responsesTable.'.respondent_id', $opensTable.'.respondent_id');
+            })
+            ->select('survey_id')
+            ->selectRaw('COUNT(*) as abandoned_count')
+            ->groupBy('survey_id')
+            ->pluck('abandoned_count', 'survey_id')
+            ->all();
+
+        /** @var array<int, int> $counts */
+        $counts = [];
+
+        foreach ($rawCounts as $surveyId => $count) {
+            $counts[(int) $surveyId] = is_numeric($count) ? (int) $count : 0;
+        }
+
+        return $counts;
     }
 
     private function completionRate(int $responses, int $dismissals): ?float

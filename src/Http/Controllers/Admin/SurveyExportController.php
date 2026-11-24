@@ -70,7 +70,7 @@ final class SurveyExportController
                             (string) $response->getKey(),
                             $response->respondent_type,
                             (string) $response->respondent_id,
-                            $response->completed_at->toDateTimeString(),
+                            $response->created_at?->toDateTimeString() ?? '',
                             $url,
                         ];
 

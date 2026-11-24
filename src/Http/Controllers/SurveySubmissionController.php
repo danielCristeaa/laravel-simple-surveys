@@ -93,7 +93,6 @@ final class SurveySubmissionController
                 'respondent_type' => $user->getMorphClass(),
                 'respondent_id' => $user->getKey(),
                 'metadata' => $metadata !== [] ? $metadata : null,
-                'completed_at' => now(),
             ]);
 
             /** @var array<string, SurveyQuestion> $questionsByKey */

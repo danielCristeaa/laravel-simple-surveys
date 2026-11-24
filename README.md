@@ -8,8 +8,8 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 - **Drop-in Blade widget:** Mount `<x-simple-surveys::widget />` once in your layout — zero CSS/JS conflicts and zero build steps required.
 - **Eloquent audience targeting:** Target authenticated users with real Eloquent queries (`where`, `whereHas`, scopes) or direct user predicates.
 - **8 built-in input types:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`.
-- **Normalized 5-table schema:** Stores surveys, questions, responses, typed answers, and dismissals cleanly with native SQL analytics.
-- **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect visual breakdowns, end/re-open surveys, and export CSVs.
+- **Normalized 6-table schema:** Stores surveys, questions, responses, typed answers, dismissals, and opens cleanly with native SQL analytics.
+- **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect funnel metrics (opened, answered, abandoned, dismissed) and visual breakdowns, end/re-open/reset surveys, and export CSVs.
 - **Octane-safe & strictly typed:** PHP 8.2+, Laravel 12.x & 13.x, PHPStan Level 8+.
 
 ## Requirements
@@ -151,7 +151,7 @@ Surveys only target **authenticated users** and automatically exclude users who 
 
 Visit `/simple-surveys/admin` (configurable via `config/simple-surveys.php`) to view:
 
-- Overview of active, scheduled, draft, closed, and archived surveys with response counts, dismissal counts, and completion rates.
+- Overview of active, scheduled, draft, closed, and archived surveys with opened, abandoned, response, and dismissal counts plus completion rates.
 - Per-question analytics (averages/min/max for numeric & rating questions, percentage bar distributions for choice/boolean/rating questions, and recent text answers).
 - Paginated individual responses and streamed **CSV export**.
 - **End Survey Now**, **Re-open Survey**, and **Reset Responses** controls (with confirmation modals).
@@ -170,8 +170,9 @@ Gate::define('viewSimpleSurveys', function ($user): bool {
 
 ## Events
 
-The package dispatches two events you can listen to:
+The package dispatches three events you can listen to:
 
+- `DanielCristea\SimpleSurveys\Events\SurveyOpened` (`$survey`, `$open`, `$respondent`)
 - `DanielCristea\SimpleSurveys\Events\SurveySubmitted` (`$survey`, `$response`, `$respondent`)
 - `DanielCristea\SimpleSurveys\Events\SurveyDismissed` (`$survey`, `$dismissal`, `$respondent`)
 
@@ -179,7 +180,7 @@ The package dispatches two events you can listen to:
 
 Key options in `config/simple-surveys.php`:
 
-- `tables.*` — Customize the 5 database table names (`simple_surveys`, `simple_survey_questions`, `simple_survey_responses`, `simple_survey_answers`, `simple_survey_dismissals`).
+- `tables.*` — Customize the 6 database table names (`simple_surveys`, `simple_survey_questions`, `simple_survey_responses`, `simple_survey_answers`, `simple_survey_dismissals`, `simple_survey_opens`).
 - `respondent_key_type` — `'id'` (default), `'uuid'`, or `'ulid'`.
 - `guard` — Auth guard name (`null` uses your app's default guard).
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.

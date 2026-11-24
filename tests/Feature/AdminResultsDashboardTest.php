@@ -5,6 +5,7 @@ declare(strict_types=1);
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyOpen;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
@@ -71,7 +72,8 @@ it('aggregates all question types accurately and renders the show page', functio
     $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
     $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com', 'is_admin' => false]);
     $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com', 'is_admin' => false]);
-    $clara = User::create(['name' => 'Clara', 'email' => 'clara@example.com']);
+    $clara = User::create(['name' => 'Clara', 'email' => 'clara@example.com', 'is_admin' => false]);
+    $dave = User::create(['name' => 'Dave', 'email' => 'dave@example.com', 'is_admin' => false]);
 
     SimpleSurveys::register(
         Survey::make('product-check')
@@ -86,6 +88,8 @@ it('aggregates all question types accurately and renders the show page', functio
             ])
     );
 
+    // Alice opens and submits
+    $this->actingAs($alice)->postJson(route('simple-surveys.open', 'product-check'))->assertOk();
     $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'product-check'), [
         'answers' => [
             'score' => 5,
@@ -108,15 +112,26 @@ it('aggregates all question types accurately and renders the show page', functio
         ],
     ])->assertCreated();
 
+    // Clara opens and dismisses without answering -> counts toward opens & abandoned
+    $this->actingAs($clara)->postJson(route('simple-surveys.open', 'product-check'))->assertOk();
     $this->actingAs($clara)->postJson(route('simple-surveys.dismiss', 'product-check'))->assertOk();
+
+    // Dave opens and abandons without submitting or dismissing
+    $this->actingAs($dave)->postJson(route('simple-surveys.open', 'product-check'))->assertOk();
 
     $aggregator = app(SurveyResultsAggregator::class);
     $results = $aggregator->forSurvey('product-check');
+    $summary = $aggregator->summaries()->firstWhere('key', 'product-check');
 
     expect($results)->not->toBeNull()
+        ->and($results['opens_count'])->toBe(3)
+        ->and($results['abandoned_count'])->toBe(2)
         ->and($results['responses_count'])->toBe(2)
         ->and($results['dismissals_count'])->toBe(1)
-        ->and($results['completion_rate'])->toBe(66.7);
+        ->and($results['completion_rate'])->toBe(66.7)
+        ->and($summary)->not->toBeNull()
+        ->and($summary['opens_count'])->toBe(3)
+        ->and($summary['abandoned_count'])->toBe(2);
 
     $byKey = collect($results['questions'])->keyBy('key');
 
@@ -132,7 +147,12 @@ it('aggregates all question types accurately and renders the show page', functio
         ->assertOk()
         ->assertSee('Product Check')
         ->assertSee('66.7%')
+        ->assertSee('Abandoned')
         ->assertSee('Fantastic product!')
+        ->assertSee('btn btn-warning', false)
+        ->assertSee('data-confirm-variant="warning"', false)
+        ->assertSee('btn btn-danger-solid', false)
+        ->assertSee('data-confirm-variant="danger"', false)
         ->assertSee('Export CSV');
 
     $this->actingAs($admin)
@@ -284,7 +304,8 @@ it('allows an authorized admin to reset all responses and dismissals for a surve
         ->post(route('simple-surveys.admin.reset', 'does-not-exist'))
         ->assertNotFound();
 
-    // Populate responses and dismissals
+    // Populate opens, responses, and dismissals
+    $this->actingAs($alice)->postJson(route('simple-surveys.open', 'reset-me'))->assertOk();
     $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'reset-me'), [
         'answers' => [
             'score' => 5,
@@ -292,15 +313,19 @@ it('allows an authorized admin to reset all responses and dismissals for a surve
         ],
     ])->assertCreated();
 
+    $this->actingAs($bob)->postJson(route('simple-surveys.open', 'reset-me'))->assertOk();
     $this->actingAs($bob)->postJson(route('simple-surveys.dismiss', 'reset-me'))->assertOk();
 
+    $this->actingAs($alice)->postJson(route('simple-surveys.open', 'keep-me'))->assertOk();
     $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'keep-me'), [
         'answers' => ['note' => 'Keep this answer'],
     ])->assertCreated();
 
     expect(SimpleSurveys::isEligible('reset-me', $alice))->toBeFalse()
         ->and(SimpleSurveys::isEligible('reset-me', $bob))->toBeFalse()
-        ->and(SurveyAnswer::query()->count())->toBe(3);
+        ->and(SurveyAnswer::query()->count())->toBe(3)
+        ->and(SurveyOpen::query()->forSurvey('reset-me')->count())->toBe(2)
+        ->and(SurveyOpen::query()->forSurvey('keep-me')->count())->toBe(1);
 
     // Admin sees Reset Responses button before reset
     $this->actingAs($admin)
@@ -314,16 +339,18 @@ it('allows an authorized admin to reset all responses and dismissals for a surve
         ->assertRedirect()
         ->assertSessionHas('simple_surveys_admin_status');
 
-    // reset-me responses, answers, and dismissals are deleted; keep-me is untouched
+    // reset-me responses, answers, dismissals, and opens are deleted; keep-me is untouched
     expect(SurveyResponse::query()->forSurvey('reset-me')->count())->toBe(0)
         ->and(SurveyDismissal::query()->forSurvey('reset-me')->count())->toBe(0)
+        ->and(SurveyOpen::query()->forSurvey('reset-me')->count())->toBe(0)
         ->and(
             SurveyAnswer::query()
                 ->whereHas('response', static fn ($q) => $q->whereHas('survey', static fn ($sq) => $sq->where('key', 'reset-me')))
                 ->count()
         )->toBe(0)
         ->and(SurveyAnswer::query()->count())->toBe(1)
-        ->and(SurveyResponse::query()->forSurvey('keep-me')->count())->toBe(1);
+        ->and(SurveyResponse::query()->forSurvey('keep-me')->count())->toBe(1)
+        ->and(SurveyOpen::query()->forSurvey('keep-me')->count())->toBe(1);
 
     // Button disappears when no responses/dismissals remain
     $this->actingAs($admin)
