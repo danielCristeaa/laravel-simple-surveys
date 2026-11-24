@@ -9,6 +9,7 @@ use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
+use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,7 +22,7 @@ final class SurveyEligibilityResolver
         private readonly SurveyRegistry $registry,
     ) {}
 
-    public function nextFor(?Authenticatable $user, ?CarbonInterface $now = null): ?Survey
+    public function nextFor(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): ?Survey
     {
         if (! $user instanceof Model) {
             return null;
@@ -29,6 +30,7 @@ final class SurveyEligibilityResolver
 
         $candidates = $this->registry->all()->filter(
             static fn (Survey $survey): bool => $survey->status($now) !== SurveyStatus::Draft
+                && $survey->matchesPage($context)
         );
 
         if ($candidates->isEmpty()) {
@@ -60,7 +62,7 @@ final class SurveyEligibilityResolver
     /**
      * @return Collection<int, Survey>
      */
-    public function eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null): Collection
+    public function eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): Collection
     {
         if (! $user instanceof Model) {
             return new Collection;
@@ -68,6 +70,7 @@ final class SurveyEligibilityResolver
 
         $candidates = $this->registry->all()->filter(
             static fn (Survey $survey): bool => $survey->status($now) !== SurveyStatus::Draft
+                && $survey->matchesPage($context)
         );
 
         if ($candidates->isEmpty()) {
@@ -99,9 +102,13 @@ final class SurveyEligibilityResolver
         return new Collection($eligible);
     }
 
-    public function isEligible(Survey $survey, ?Authenticatable $user, ?CarbonInterface $now = null): bool
+    public function isEligible(Survey $survey, ?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): bool
     {
         if (! $user instanceof Model) {
+            return false;
+        }
+
+        if (! $survey->matchesPage($context)) {
             return false;
         }
 

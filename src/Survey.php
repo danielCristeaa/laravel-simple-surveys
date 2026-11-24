@@ -48,6 +48,18 @@ final class Survey
     /** @var Closure(Authenticatable): bool|null */
     private ?Closure $targetUserCallback = null;
 
+    /** @var array<int, string> */
+    private array $onRoutes = [];
+
+    /** @var array<int, string> */
+    private array $exceptRoutes = [];
+
+    /** @var array<int, string> */
+    private array $onPaths = [];
+
+    /** @var array<int, string> */
+    private array $exceptPaths = [];
+
     /** @var array<string, Question> */
     private array $questions = [];
 
@@ -238,6 +250,64 @@ final class Survey
     }
 
     /**
+     * Restrict the survey to specific route names (supports wildcards, e.g. "billing.*").
+     *
+     * @param  string|array<int, string>  $routes
+     */
+    public function onRoutes(string|array $routes): self
+    {
+        $this->onRoutes = array_values(is_array($routes) ? $routes : [$routes]);
+
+        return $this;
+    }
+
+    /**
+     * Exclude the survey from specific route names (supports wildcards, e.g. "admin.*").
+     *
+     * @param  string|array<int, string>  $routes
+     */
+    public function exceptRoutes(string|array $routes): self
+    {
+        $this->exceptRoutes = array_values(is_array($routes) ? $routes : [$routes]);
+
+        return $this;
+    }
+
+    /**
+     * Restrict the survey to specific URL paths (supports wildcards, e.g. "billing/*").
+     *
+     * @param  string|array<int, string>  $paths
+     */
+    public function onPaths(string|array $paths): self
+    {
+        $items = is_array($paths) ? $paths : [$paths];
+
+        $this->onPaths = array_values(array_map(
+            static fn (string $path): string => PageContext::normalizePath($path),
+            $items,
+        ));
+
+        return $this;
+    }
+
+    /**
+     * Exclude the survey from specific URL paths (supports wildcards, e.g. "checkout/*").
+     *
+     * @param  string|array<int, string>  $paths
+     */
+    public function exceptPaths(string|array $paths): self
+    {
+        $items = is_array($paths) ? $paths : [$paths];
+
+        $this->exceptPaths = array_values(array_map(
+            static fn (string $path): string => PageContext::normalizePath($path),
+            $items,
+        ));
+
+        return $this;
+    }
+
+    /**
      * @param  array<int, Question>  $questions
      */
     public function questions(array $questions): self
@@ -344,6 +414,77 @@ final class Survey
     public function getTargetUserCallback(): ?Closure
     {
         return $this->targetUserCallback;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getOnRoutes(): array
+    {
+        return $this->onRoutes;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getExceptRoutes(): array
+    {
+        return $this->exceptRoutes;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getOnPaths(): array
+    {
+        return $this->onPaths;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getExceptPaths(): array
+    {
+        return $this->exceptPaths;
+    }
+
+    public function hasPageTargeting(): bool
+    {
+        return $this->onRoutes !== []
+            || $this->exceptRoutes !== []
+            || $this->onPaths !== []
+            || $this->exceptPaths !== [];
+    }
+
+    public function matchesPage(?PageContext $context): bool
+    {
+        if (! $this->hasPageTargeting() || $context === null) {
+            return true;
+        }
+
+        $path = $context->path !== null ? PageContext::normalizePath($context->path) : null;
+
+        if ($this->exceptRoutes !== [] && $context->routeName !== null && Str::is($this->exceptRoutes, $context->routeName)) {
+            return false;
+        }
+
+        if ($this->exceptPaths !== [] && $path !== null && Str::is($this->exceptPaths, $path)) {
+            return false;
+        }
+
+        if ($this->onRoutes === [] && $this->onPaths === []) {
+            return true;
+        }
+
+        $matchesRoute = $this->onRoutes !== []
+            && $context->routeName !== null
+            && Str::is($this->onRoutes, $context->routeName);
+
+        $matchesPath = $this->onPaths !== []
+            && $path !== null
+            && Str::is($this->onPaths, $path);
+
+        return $matchesRoute || $matchesPath;
     }
 
     /**

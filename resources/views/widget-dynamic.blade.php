@@ -37,10 +37,13 @@
         }
 
         function refreshMount(mount) {
-            var url = mount.dataset.lssWidgetUrl;
-            if (!url) {
+            var baseUrl = mount.dataset.lssWidgetUrl;
+            if (!baseUrl) {
                 return;
             }
+
+            var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+            var url = baseUrl + separator + 'url=' + encodeURIComponent(window.location.pathname);
 
             fetch(url, {
                 method: 'GET',

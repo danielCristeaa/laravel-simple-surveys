@@ -11,6 +11,7 @@ use DanielCristea\SimpleSurveys\Tests\Support\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 it('returns 204 for guests and ineligible users on the widget endpoint', function (): void {
     SimpleSurveys::register(
@@ -194,4 +195,55 @@ it('renders dynamic mount container for guests and ssr-includes widget when elig
     expect($afterSubmitHtml)
         ->toContain('data-lss-dynamic-mount')
         ->not->toContain('id="lss-widget-');
+});
+
+it('evaluates route and path targeting from the url query parameter on dynamic endpoints', function (): void {
+    $user = User::create(['name' => 'Leo', 'email' => 'leo@example.com']);
+
+    Route::get('/billing/invoices', static fn (): string => 'ok')->name('billing.invoices');
+    Route::get('/settings', static fn (): string => 'ok')->name('settings.index');
+
+    SimpleSurveys::register(
+        Survey::make('billing-poll')
+            ->title('Billing Poll')
+            ->onRoutes('billing.*')
+            ->questions([Question::text('feedback', 'Feedback')->required()])
+    );
+
+    SimpleSurveys::register(
+        Survey::make('dashboard-poll')
+            ->title('Dashboard Poll')
+            ->onPaths('/dashboard')
+    );
+
+    $this->actingAs($user)
+        ->get(route('simple-surveys.widget', ['url' => '/billing/invoices']))
+        ->assertOk()
+        ->assertSee('Billing Poll');
+
+    $this->actingAs($user)
+        ->getJson(route('simple-surveys.eligible', ['url' => '/billing/invoices']))
+        ->assertOk()
+        ->assertJsonPath('survey.key', 'billing-poll');
+
+    $this->actingAs($user)
+        ->getJson(route('simple-surveys.eligible', ['url' => '/dashboard']))
+        ->assertOk()
+        ->assertJsonPath('survey.key', 'dashboard-poll');
+
+    $this->actingAs($user)
+        ->get(route('simple-surveys.widget', ['url' => '/settings']))
+        ->assertNoContent();
+
+    $this->actingAs($user)
+        ->getJson(route('simple-surveys.eligible', ['url' => '/settings']))
+        ->assertOk()
+        ->assertExactJson(['survey' => null]);
+
+    // Submission endpoint remains unaffected by page targeting
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.responses.store', 'billing-poll'), [
+            'answers' => ['feedback' => 'Super easy!'],
+        ])
+        ->assertCreated();
 });

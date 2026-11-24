@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys\Http\Controllers;
 
+use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySerializer;
@@ -31,9 +32,15 @@ final class EligibleSurveyController
         }
 
         $surveyKey = $request->query('survey');
+        $urlParam = $request->query('url');
+        $context = is_string($urlParam) && $urlParam !== ''
+            ? PageContext::fromPath($urlParam)
+            : null;
+
         $activeSurvey = $this->resolveActiveSurvey(
             $user,
             is_string($surveyKey) && $surveyKey !== '' ? $surveyKey : null,
+            $context,
         );
 
         return (new JsonResponse([
@@ -41,18 +48,18 @@ final class EligibleSurveyController
         ]))->header('Cache-Control', 'no-store, private');
     }
 
-    private function resolveActiveSurvey(Authenticatable $user, ?string $surveyKey): ?Survey
+    private function resolveActiveSurvey(Authenticatable $user, ?string $surveyKey, ?PageContext $context): ?Survey
     {
         if ($surveyKey !== null) {
             $candidate = $this->registry->find($surveyKey);
 
-            if ($candidate !== null && $this->eligibility->isEligible($candidate, $user)) {
+            if ($candidate !== null && $this->eligibility->isEligible($candidate, $user, context: $context)) {
                 return $candidate;
             }
 
             return null;
         }
 
-        return $this->eligibility->nextFor($user);
+        return $this->eligibility->nextFor($user, context: $context);
     }
 }

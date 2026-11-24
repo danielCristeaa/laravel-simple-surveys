@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
+use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Database\Eloquent\Builder;
@@ -100,4 +101,42 @@ it('configures reprompt cooldowns and evaluates dismissal expiration accurately'
         ->and(fn () => Survey::make('bad-hours')->repromptAfterHours(-1))->toThrow(InvalidArgumentException::class)
         ->and(fn () => Survey::make('bad-minutes')->repromptAfterMinutes(0))->toThrow(InvalidArgumentException::class)
         ->and(fn () => Survey::make('bad-interval')->repromptAfter(CarbonInterval::seconds(0)))->toThrow(InvalidArgumentException::class);
+});
+
+it('matches routes and url paths with wildcard support and exclusions', function (): void {
+    $untargeted = Survey::make('global');
+    expect($untargeted->hasPageTargeting())->toBeFalse()
+        ->and($untargeted->matchesPage(new PageContext('home', '/')))->toBeTrue();
+
+    $routeTargeted = Survey::make('billing-survey')
+        ->onRoutes(['billing.*', 'dashboard'])
+        ->exceptRoutes('billing.webhook');
+
+    expect($routeTargeted->hasPageTargeting())->toBeTrue()
+        ->and($routeTargeted->getOnRoutes())->toBe(['billing.*', 'dashboard'])
+        ->and($routeTargeted->getExceptRoutes())->toBe(['billing.webhook'])
+        ->and($routeTargeted->matchesPage(null))->toBeTrue()
+        ->and($routeTargeted->matchesPage(new PageContext('billing.invoices', 'billing/invoices')))->toBeTrue()
+        ->and($routeTargeted->matchesPage(new PageContext('dashboard', 'dashboard')))->toBeTrue()
+        ->and($routeTargeted->matchesPage(new PageContext('billing.webhook', 'billing/webhook')))->toBeFalse()
+        ->and($routeTargeted->matchesPage(new PageContext('settings.profile', 'settings')))->toBeFalse();
+
+    $pathTargeted = Survey::make('path-survey')
+        ->onPaths(['/app/*', '/'])
+        ->exceptPaths('/app/checkout/*');
+
+    expect($pathTargeted->getOnPaths())->toBe(['app/*', '/'])
+        ->and($pathTargeted->getExceptPaths())->toBe(['app/checkout/*'])
+        ->and($pathTargeted->matchesPage(new PageContext(null, '/')))->toBeTrue()
+        ->and($pathTargeted->matchesPage(new PageContext(null, '/app/reports')))->toBeTrue()
+        ->and($pathTargeted->matchesPage(new PageContext(null, '/app/checkout/step-1')))->toBeFalse()
+        ->and($pathTargeted->matchesPage(new PageContext(null, '/pricing')))->toBeFalse();
+
+    $exclusionOnly = Survey::make('no-admin')
+        ->exceptRoutes('admin.*')
+        ->exceptPaths('/checkout');
+
+    expect($exclusionOnly->matchesPage(new PageContext('home', '/')))->toBeTrue()
+        ->and($exclusionOnly->matchesPage(new PageContext('admin.users', 'admin/users')))->toBeFalse()
+        ->and($exclusionOnly->matchesPage(new PageContext('shop.checkout', '/checkout')))->toBeFalse();
 });

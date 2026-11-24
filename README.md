@@ -160,6 +160,7 @@ Surveys only target **authenticated users** and automatically exclude users who 
 
 - **Eloquent query targeting:** `->target(fn (Builder $query) => ...)` — safely nested inside `WHERE id = ? AND (...)` so `orWhere` clauses cannot leak across users.
 - **Direct user predicate:** `->targetUser(fn ($user): bool => $user->isBetaTester())` — evaluated in memory with zero extra queries.
+- **URL & route targeting:** `->onRoutes(['dashboard', 'billing.*'])`, `->exceptRoutes('admin.*')`, `->onPaths('/app/*')`, and `->exceptPaths('/checkout/*')` restrict which pages display the survey (works for both Blade and SPA `dynamic` mode).
 - **Scheduling & flags:** `->startsAt(...)`, `->endsAt(...)`, `->until(...)`, `->activeBetween($start, $end)`, `->draft()`, `->closed()`, `->dismissible(false)`, `->priority(int)`.
 - **Re-prompt after dismissal:** `->repromptAfterDays(14)` (also `->repromptAfterHours(...)`, `->repromptAfterMinutes(...)`, or `->repromptAfter(CarbonInterval::weeks(2))`) re-shows a dismissed survey once the cooldown expires (switches the dismiss button label to "Remind me later"). Completed responses never re-prompt.
 

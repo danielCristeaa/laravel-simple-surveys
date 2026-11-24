@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys\View\Components;
 
+use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Component;
 
@@ -30,6 +32,7 @@ final class Widget extends Component
     public function __construct(
         SurveyRegistry $registry,
         SurveyEligibilityResolver $eligibility,
+        Request $request,
         ?string $survey = null,
         string $position = 'bottom-right',
         bool $dynamic = false,
@@ -55,14 +58,16 @@ final class Widget extends Component
             return;
         }
 
+        $context = PageContext::fromRequest($request);
+
         if ($survey !== null && $survey !== '') {
             $candidate = $registry->find($survey);
 
-            if ($candidate !== null && $eligibility->isEligible($candidate, $user)) {
+            if ($candidate !== null && $eligibility->isEligible($candidate, $user, context: $context)) {
                 $this->activeSurvey = $candidate;
             }
         } else {
-            $this->activeSurvey = $eligibility->nextFor($user);
+            $this->activeSurvey = $eligibility->nextFor($user, context: $context);
         }
 
         if ($this->activeSurvey !== null) {

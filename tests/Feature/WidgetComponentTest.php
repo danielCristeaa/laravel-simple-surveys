@@ -10,6 +10,7 @@ use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\Tests\Support\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 
 it('renders nothing for unauthenticated visitors', function (): void {
     SimpleSurveys::register(Survey::make('guest-test')->title('Guest Test'));
@@ -123,4 +124,35 @@ it('renders Remind me later label when reprompt cooldown is configured', functio
     expect($html)
         ->toContain('Remind me later')
         ->not->toContain("Don't show again");
+});
+
+it('only renders the widget on routes and paths matching survey page targeting', function (): void {
+    $user = User::create(['name' => 'Zoe', 'email' => 'zoe@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('billing-feedback')
+            ->title('Billing Experience')
+            ->onRoutes('billing.*')
+            ->exceptRoutes('billing.excluded')
+    );
+
+    Route::get('/billing/invoices', static fn (): string => Blade::render('<x-simple-surveys::widget />'))
+        ->name('billing.invoices');
+
+    Route::get('/billing/excluded', static fn (): string => Blade::render('<x-simple-surveys::widget />'))
+        ->name('billing.excluded');
+
+    Route::get('/settings/profile', static fn (): string => Blade::render('<x-simple-surveys::widget />'))
+        ->name('settings.profile');
+
+    $this->actingAs($user)
+        ->get('/billing/invoices')
+        ->assertOk()
+        ->assertSee('Billing Experience');
+
+    $excluded = $this->actingAs($user)->get('/billing/excluded')->assertOk();
+    expect(trim($excluded->getContent() ?: ''))->toBe('');
+
+    $other = $this->actingAs($user)->get('/settings/profile')->assertOk();
+    expect(trim($other->getContent() ?: ''))->toBe('');
 });

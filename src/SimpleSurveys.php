@@ -62,20 +62,20 @@ final class SimpleSurveys
         $this->registry->clear();
     }
 
-    public function forUser(?Authenticatable $user, ?CarbonInterface $now = null): ?Survey
+    public function forUser(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): ?Survey
     {
-        return $this->eligibility->nextFor($user, $now);
+        return $this->eligibility->nextFor($user, $now, $context);
     }
 
     /**
      * @return Collection<int, Survey>
      */
-    public function eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null): Collection
+    public function eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): Collection
     {
-        return $this->eligibility->eligibleFor($user, $now);
+        return $this->eligibility->eligibleFor($user, $now, $context);
     }
 
-    public function isEligible(Survey|string $survey, ?Authenticatable $user, ?CarbonInterface $now = null): bool
+    public function isEligible(Survey|string $survey, ?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): bool
     {
         $resolved = is_string($survey) ? $this->find($survey) : $survey;
 
@@ -83,7 +83,7 @@ final class SimpleSurveys
             return false;
         }
 
-        return $this->eligibility->isEligible($resolved, $user, $now);
+        return $this->eligibility->isEligible($resolved, $user, $now, $context);
     }
 
     /**

@@ -7,6 +7,7 @@ use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
+use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\Tests\Support\Order;
 use DanielCristea\SimpleSurveys\Tests\Support\User;
@@ -182,4 +183,39 @@ it('re-prompts eligible users after the dismissal cooldown expires', function ()
         ->and(SimpleSurveys::forUser($user, $day14)?->key())->toBe('reprompt-survey')
         ->and(SimpleSurveys::eligibleFor($user, $day14)->map->key()->all())->toBe(['reprompt-survey'])
         ->and(SimpleSurveys::isEligible('reprompt-survey', $user, $day14))->toBeTrue();
+});
+
+it('filters eligible surveys by page route and path with zero db queries when none match', function (): void {
+    $user = User::create(['name' => 'Nora', 'email' => 'nora@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('billing-only')
+            ->priority(50)
+            ->onRoutes('billing.*')
+    );
+
+    SimpleSurveys::register(
+        Survey::make('dashboard-only')
+            ->priority(10)
+            ->onPaths('/dashboard/*')
+            ->exceptPaths('/dashboard/secret')
+    );
+
+    $billingContext = new PageContext('billing.invoices', 'billing/invoices');
+    $dashboardContext = new PageContext('dashboard.analytics', 'dashboard/analytics');
+    $secretContext = new PageContext('dashboard.secret', 'dashboard/secret');
+    $settingsContext = new PageContext('settings', 'settings');
+
+    expect(SimpleSurveys::forUser($user, context: $billingContext)?->key())->toBe('billing-only')
+        ->and(SimpleSurveys::forUser($user, context: $dashboardContext)?->key())->toBe('dashboard-only')
+        ->and(SimpleSurveys::eligibleFor($user, context: $dashboardContext)->map->key()->all())->toBe(['dashboard-only'])
+        ->and(SimpleSurveys::isEligible('dashboard-only', $user, context: $secretContext))->toBeFalse();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    expect(SimpleSurveys::forUser($user, context: $settingsContext))->toBeNull()
+        ->and(SimpleSurveys::eligibleFor($user, context: $settingsContext))->toBeEmpty()
+        ->and(SimpleSurveys::isEligible('billing-only', $user, context: $settingsContext))->toBeFalse()
+        ->and(DB::getQueryLog())->toBeEmpty();
 });
