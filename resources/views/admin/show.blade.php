@@ -50,6 +50,21 @@
                 </form>
             @endif
 
+            @if ($results['responses_count'] > 0 || $results['dismissals_count'] > 0)
+                <form
+                    method="POST"
+                    action="{{ route('simple-surveys.admin.reset', $results['key']) }}"
+                    class="inline-form"
+                    data-confirm-title="Reset survey responses?"
+                    data-confirm-message="This will permanently delete all submitted responses, answers, and dismissals for this survey. Eligible users will be able to see and take it again."
+                    data-confirm-button="Reset Responses"
+                    data-confirm-variant="danger"
+                >
+                    @csrf
+                    <button type="submit" class="btn btn-danger">Reset Responses</button>
+                </form>
+            @endif
+
             @if ($results['responses_count'] > 0)
                 <a href="{{ route('simple-surveys.admin.export', $results['key']) }}" class="btn btn-primary">
                     Export CSV

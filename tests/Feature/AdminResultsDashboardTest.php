@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
+use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Survey;
@@ -66,8 +69,8 @@ it('displays running, unsynced, and archived surveys on the admin index', functi
 
 it('aggregates all question types accurately and renders the show page', function (): void {
     $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
-    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com']);
-    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com', 'is_admin' => false]);
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com', 'is_admin' => false]);
     $clara = User::create(['name' => 'Clara', 'email' => 'clara@example.com']);
 
     SimpleSurveys::register(
@@ -247,4 +250,95 @@ it('allows an authorized admin to end a running survey and re-open it later', fu
             'answers' => ['feedback' => 'Back open!'],
         ])
         ->assertCreated();
+});
+
+it('allows an authorized admin to reset all responses and dismissals for a survey', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com', 'is_admin' => false]);
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com', 'is_admin' => false]);
+
+    SimpleSurveys::register(
+        Survey::make('reset-me')
+            ->title('Reset Me')
+            ->questions([
+                Question::rating('score', 'Score')->scale(1, 5)->required(),
+                Question::text('feedback', 'Feedback'),
+            ])
+    );
+
+    SimpleSurveys::register(
+        Survey::make('keep-me')
+            ->title('Keep Me')
+            ->questions([
+                Question::text('note', 'Note')->required(),
+            ])
+    );
+
+    // Unauthorized users cannot reset
+    $this->actingAs($alice)
+        ->post(route('simple-surveys.admin.reset', 'reset-me'))
+        ->assertForbidden();
+
+    // Unknown survey returns 404
+    $this->actingAs($admin)
+        ->post(route('simple-surveys.admin.reset', 'does-not-exist'))
+        ->assertNotFound();
+
+    // Populate responses and dismissals
+    $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'reset-me'), [
+        'answers' => [
+            'score' => 5,
+            'feedback' => 'Great!',
+        ],
+    ])->assertCreated();
+
+    $this->actingAs($bob)->postJson(route('simple-surveys.dismiss', 'reset-me'))->assertOk();
+
+    $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'keep-me'), [
+        'answers' => ['note' => 'Keep this answer'],
+    ])->assertCreated();
+
+    expect(SimpleSurveys::isEligible('reset-me', $alice))->toBeFalse()
+        ->and(SimpleSurveys::isEligible('reset-me', $bob))->toBeFalse()
+        ->and(SurveyAnswer::query()->count())->toBe(3);
+
+    // Admin sees Reset Responses button before reset
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'reset-me'))
+        ->assertOk()
+        ->assertSee('Reset Responses');
+
+    // Admin resets responses for reset-me
+    $this->actingAs($admin)
+        ->post(route('simple-surveys.admin.reset', 'reset-me'))
+        ->assertRedirect()
+        ->assertSessionHas('simple_surveys_admin_status');
+
+    // reset-me responses, answers, and dismissals are deleted; keep-me is untouched
+    expect(SurveyResponse::query()->forSurvey('reset-me')->count())->toBe(0)
+        ->and(SurveyDismissal::query()->forSurvey('reset-me')->count())->toBe(0)
+        ->and(
+            SurveyAnswer::query()
+                ->whereHas('response', static fn ($q) => $q->whereHas('survey', static fn ($sq) => $sq->where('key', 'reset-me')))
+                ->count()
+        )->toBe(0)
+        ->and(SurveyAnswer::query()->count())->toBe(1)
+        ->and(SurveyResponse::query()->forSurvey('keep-me')->count())->toBe(1);
+
+    // Button disappears when no responses/dismissals remain
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'reset-me'))
+        ->assertOk()
+        ->assertDontSee('Reset Responses');
+
+    // Both Alice and Bob are eligible again, and Alice can submit a fresh response
+    expect(SimpleSurveys::isEligible('reset-me', $alice))->toBeTrue()
+        ->and(SimpleSurveys::isEligible('reset-me', $bob))->toBeTrue();
+
+    $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'reset-me'), [
+        'answers' => [
+            'score' => 4,
+            'feedback' => 'Submitted again after reset!',
+        ],
+    ])->assertCreated();
 });

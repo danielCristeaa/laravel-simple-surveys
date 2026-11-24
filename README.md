@@ -154,7 +154,7 @@ Visit `/simple-surveys/admin` (configurable via `config/simple-surveys.php`) to 
 - Overview of active, scheduled, draft, closed, and archived surveys with response counts, dismissal counts, and completion rates.
 - Per-question analytics (averages/min/max for numeric & rating questions, percentage bar distributions for choice/boolean/rating questions, and recent text answers).
 - Paginated individual responses and streamed **CSV export**.
-- **End Survey Now** and **Re-open Survey** controls (with confirmation modals).
+- **End Survey Now**, **Re-open Survey**, and **Reset Responses** controls (with confirmation modals).
 
 ### Controlling Admin Access
 
