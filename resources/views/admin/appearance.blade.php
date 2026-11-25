@@ -309,14 +309,14 @@
         <div class="preview-sticky stack">
             <div class="card">
                 <div class="preview-toolbar">
-                    <div>
+                    <div class="preview-toolbar-row">
                         <h2 class="section-heading" style="margin: 0;">Live Preview</h2>
-                        <span class="muted" style="font-size: 12px;">
+                        <span class="preview-placement-badge">
                             Placement: <strong id="lss-preview-position-label">{{ \DanielCristea\SimpleSurveys\Enums\WidgetPosition::tryFrom($previewPosition)?->label() ?? 'Bottom Right' }}</strong>
                         </span>
                     </div>
 
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div class="preview-toolbar-row">
                         <div class="segmented" role="group" aria-label="Preview view">
                             <button type="button" class="segmented-btn is-active" data-preview-mode="card">Card</button>
                             <button type="button" class="segmented-btn" data-preview-mode="banner">Banner</button>

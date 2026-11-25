@@ -552,11 +552,21 @@
         }
         .preview-toolbar {
             display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .preview-toolbar-row {
+            display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 8px;
             flex-wrap: wrap;
-            margin-bottom: 12px;
+        }
+        .preview-placement-badge {
+            font-size: 12px;
+            color: var(--muted);
+            white-space: nowrap;
         }
         .segmented {
             display: inline-flex;
