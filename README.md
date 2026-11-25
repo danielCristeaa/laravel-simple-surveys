@@ -10,12 +10,12 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 - **8 built-in input types:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`.
 - **Normalized 6-table schema:** Stores surveys, questions, responses, typed answers, dismissals, and opens cleanly with native SQL analytics.
 - **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect funnel metrics (opened, answered, abandoned, dismissed) and visual breakdowns, end/re-open/reset surveys, and export CSVs.
-- **Octane-safe & strictly typed:** PHP 8.2+, Laravel 12.x & 13.x, PHPStan Level 8+.
+- **Octane-safe & strictly typed:** PHP 8.2+, Laravel 11.x, 12.x & 13.x, PHPStan Level 8+.
 
 ## Requirements
 
 - PHP `8.2+`
-- Laravel `12.x` or `13.x`
+- Laravel `11.x`, `12.x`, or `13.x`
 
 ## Installation
 
