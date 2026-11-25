@@ -1,367 +1,30 @@
 @php
     use DanielCristea\SimpleSurveys\Enums\QuestionType;
+    use DanielCristea\SimpleSurveys\Services\WidgetStyles;
     /** @var \DanielCristea\SimpleSurveys\Survey $activeSurvey */
     $widgetId = 'lss-widget-' . \Illuminate\Support\Str::slug($activeSurvey->key());
+    $resolvedPosition = $position ?? 'bottom-right';
+    $resolvedTheme = $theme ?? 'light';
+    $resolvedInlineStyle = $inlineStyle ?? '';
 @endphp
 
 <div
     id="{{ $widgetId }}"
-    class="lss-root lss-pos-{{ $position }}"
+    class="lss-root lss-pos-{{ $resolvedPosition }}"
     wire:ignore
     data-lss-widget
+    data-lss-survey="{{ $activeSurvey->key() }}"
+    data-lss-position="{{ $resolvedPosition }}"
+    data-lss-theme="{{ $resolvedTheme }}"
+    @if ($resolvedInlineStyle !== '') style="{{ $resolvedInlineStyle }}" @endif
     data-lss-submit-url="{{ $submitUrl }}"
     data-lss-dismiss-url="{{ $dismissUrl }}"
     data-lss-open-url="{{ $openUrl }}"
     data-lss-thank-you="{{ $activeSurvey->getThankYouMessage() }}"
 >
-    <style>
-        .lss-root {
-            --lss-accent: #4f46e5;
-            --lss-accent-hover: #4338ca;
-            --lss-bg: #ffffff;
-            --lss-surface: #f8fafc;
-            --lss-border: #e2e8f0;
-            --lss-text: #0f172a;
-            --lss-muted: #64748b;
-            --lss-danger: #dc2626;
-            --lss-success: #16a34a;
-            --lss-radius: 12px;
-            --lss-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
-            position: fixed;
-            bottom: 20px;
-            z-index: 9999;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 14px;
-            line-height: 1.5;
-            color: var(--lss-text);
-            max-width: calc(100vw - 32px);
-        }
-        .lss-root, .lss-root * {
-            box-sizing: border-box;
-        }
-        .lss-pos-bottom-right {
-            right: 20px;
-        }
-        .lss-pos-bottom-left {
-            left: 20px;
-        }
-        .lss-hidden {
-            display: none !important;
-        }
-        .lss-banner {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: var(--lss-bg);
-            border: 1px solid var(--lss-border);
-            border-radius: var(--lss-radius);
-            box-shadow: var(--lss-shadow);
-            padding: 12px 14px;
-            max-width: 380px;
-        }
-        .lss-banner-icon {
-            flex-shrink: 0;
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            background: #eef2ff;
-            color: var(--lss-accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .lss-banner-text {
-            flex: 1;
-            font-weight: 500;
-            color: var(--lss-text);
-            margin: 0;
-            font-size: 13.5px;
-        }
-        .lss-banner-actions {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-        }
-        .lss-btn-primary {
-            appearance: none;
-            border: none;
-            background: var(--lss-accent);
-            color: #ffffff;
-            font-weight: 600;
-            font-size: 13px;
-            padding: 7px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.15s ease, opacity 0.15s ease;
-        }
-        .lss-btn-primary:hover {
-            background: var(--lss-accent-hover);
-        }
-        .lss-btn-primary:disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
-        }
-        .lss-btn-icon {
-            appearance: none;
-            border: none;
-            background: transparent;
-            color: var(--lss-muted);
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 18px;
-            line-height: 1;
-            transition: background-color 0.15s ease, color 0.15s ease;
-        }
-        .lss-btn-icon:hover {
-            background: var(--lss-surface);
-            color: var(--lss-text);
-        }
-        .lss-card {
-            width: 390px;
-            max-width: 100%;
-            max-height: 82vh;
-            display: flex;
-            flex-direction: column;
-            background: var(--lss-bg);
-            border: 1px solid var(--lss-border);
-            border-radius: var(--lss-radius);
-            box-shadow: var(--lss-shadow);
-            overflow: hidden;
-        }
-        .lss-card-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 16px 18px 12px;
-            border-bottom: 1px solid var(--lss-border);
-        }
-        .lss-card-title {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--lss-text);
-        }
-        .lss-card-desc {
-            margin: 4px 0 0;
-            font-size: 13px;
-            color: var(--lss-muted);
-        }
-        .lss-form {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            margin: 0;
-        }
-        .lss-card-body {
-            padding: 16px 18px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .lss-field {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .lss-label {
-            font-size: 13.5px;
-            font-weight: 500;
-            color: var(--lss-text);
-            margin: 0;
-        }
-        .lss-required {
-            color: var(--lss-danger);
-            margin-left: 2px;
-        }
-        .lss-help {
-            font-size: 12px;
-            color: var(--lss-muted);
-            margin: -2px 0 0;
-        }
-        .lss-input,
-        .lss-textarea,
-        .lss-select {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid var(--lss-border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 13.5px;
-            color: var(--lss-text);
-            background: var(--lss-bg);
-            outline: none;
-            transition: border-color 0.15s ease, box-shadow 0.15s ease;
-        }
-        .lss-input:focus,
-        .lss-textarea:focus,
-        .lss-select:focus {
-            border-color: var(--lss-accent);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
-        }
-        .lss-textarea {
-            resize: vertical;
-            min-height: 76px;
-        }
-        .lss-options {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .lss-option-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 10px;
-            border: 1px solid var(--lss-border);
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 13.5px;
-            transition: border-color 0.15s ease, background-color 0.15s ease;
-        }
-        .lss-option-item:hover {
-            background: var(--lss-surface);
-        }
-        .lss-option-item input {
-            margin: 0;
-            accent-color: var(--lss-accent);
-        }
-        .lss-rating-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .lss-rating-item {
-            position: relative;
-            flex: 1 0 32px;
-            max-width: 44px;
-        }
-        .lss-rating-item input {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .lss-rating-item span {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 34px;
-            border: 1px solid var(--lss-border);
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            background: var(--lss-bg);
-            color: var(--lss-text);
-            transition: all 0.15s ease;
-        }
-        .lss-rating-item span:hover {
-            border-color: var(--lss-accent);
-            background: #eef2ff;
-        }
-        .lss-rating-item input:checked + span {
-            background: var(--lss-accent);
-            border-color: var(--lss-accent);
-            color: #ffffff;
-        }
-        .lss-boolean-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-        .lss-boolean-item {
-            position: relative;
-        }
-        .lss-boolean-item input {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .lss-boolean-item span {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8px 12px;
-            border: 1px solid var(--lss-border);
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 13.5px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .lss-boolean-item input:checked + span {
-            background: #eef2ff;
-            border-color: var(--lss-accent);
-            color: var(--lss-accent);
-            font-weight: 600;
-        }
-        .lss-error {
-            font-size: 12px;
-            color: var(--lss-danger);
-            margin: 0;
-        }
-        .lss-general-error {
-            padding: 8px 10px;
-            border-radius: 8px;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: var(--lss-danger);
-            font-size: 12.5px;
-        }
-        .lss-card-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            padding: 12px 18px;
-            border-top: 1px solid var(--lss-border);
-            background: var(--lss-surface);
-        }
-        .lss-btn-link {
-            appearance: none;
-            border: none;
-            background: transparent;
-            color: var(--lss-muted);
-            font-size: 12.5px;
-            cursor: pointer;
-            padding: 4px 0;
-            text-decoration: underline;
-        }
-        .lss-btn-link:hover {
-            color: var(--lss-text);
-        }
-        .lss-thanks {
-            padding: 24px 18px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-        .lss-thanks-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 9999px;
-            background: #dcfce7;
-            color: var(--lss-success);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .lss-thanks-msg {
-            margin: 0;
-            font-weight: 600;
-            font-size: 14.5px;
-            color: var(--lss-text);
-        }
-    </style>
+    <style>{!! WidgetStyles::css() !!}</style>
+
+    <div class="lss-backdrop lss-hidden" data-lss-backdrop aria-hidden="true"></div>
 
     {{-- Collapsed Banner --}}
     <div class="lss-banner" data-lss-banner>
@@ -582,6 +245,7 @@
             root.dataset.lssInitialized = '1';
 
             var banner = root.querySelector('[data-lss-banner]');
+            var backdrop = root.querySelector('[data-lss-backdrop]');
             var card = root.querySelector('[data-lss-card]');
             var openBtn = root.querySelector('[data-lss-open]');
             var closeBtn = root.querySelector('[data-lss-close]');
@@ -635,6 +299,7 @@
 
             function openCard() {
                 if (banner) banner.classList.add('lss-hidden');
+                if (backdrop && root.dataset.lssPosition === 'center') backdrop.classList.remove('lss-hidden');
                 if (card) card.classList.remove('lss-hidden');
                 if (openBtn) openBtn.setAttribute('aria-expanded', 'true');
 
@@ -659,6 +324,7 @@
                     return;
                 }
                 if (card) card.classList.add('lss-hidden');
+                if (backdrop) backdrop.classList.add('lss-hidden');
                 if (banner) banner.classList.remove('lss-hidden');
                 if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
             }
@@ -669,6 +335,10 @@
 
             if (closeBtn) {
                 closeBtn.addEventListener('click', closeCard);
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', closeCard);
             }
 
             document.addEventListener('keydown', function (event) {

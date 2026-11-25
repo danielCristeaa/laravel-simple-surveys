@@ -5,7 +5,8 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 ## Features
 
 - **Code-first fluent API:** Define surveys, questions, and targeting rules directly in PHP (or dedicated `SurveyDefinition` classes).
-- **Drop-in Blade widget:** Mount `<x-simple-surveys::widget />` once in your layout — zero CSS/JS conflicts and zero build steps required.
+- **Drop-in Blade widget:** Mount `<x-simple-surveys::widget />` once in your layout — zero CSS/JS conflicts, light/dark/auto presets, 5 screen placements (including centered modal), and zero build steps required.
+- **Flexible appearance customization:** Style all surveys globally or target individual surveys in your own CSS (`php artisan vendor:publish --tag="simple-surveys-styles"`), or fine-tune any survey visually with a live preview in the Admin Dashboard **Appearance** tab.
 - **Eloquent audience targeting:** Target authenticated users with real Eloquent queries (`where`, `whereHas`, scopes) or direct user predicates.
 - **8 built-in input types:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`.
 - **Normalized 6-table schema:** Stores surveys, questions, responses, typed answers, dismissals, and opens cleanly with native SQL analytics.
@@ -125,12 +126,18 @@ Drop the Blade component into your layout before `</body>`:
 Optional attributes:
 
 ```blade
-{{-- Render a specific survey (if eligible) in the bottom-left corner --}}
-<x-simple-surveys::widget survey="onboarding-feedback" position="bottom-left" />
+{{-- Render a specific survey (if eligible) in the bottom-left corner with dark mode --}}
+<x-simple-surveys::widget survey="onboarding-feedback" position="bottom-left" theme="dark" />
+
+{{-- Use centered modal placement (subtle bottom-center banner that opens into a centered modal) --}}
+<x-simple-surveys::widget position="center" theme="auto" />
 
 {{-- Enable dynamic SPA mode for Inertia.js / Livewire wire:navigate --}}
 <x-simple-surveys::widget dynamic />
 ```
+
+Supported `position` values: `bottom-right` (default), `bottom-left`, `top-right`, `top-left`, and `center`.
+Supported `theme` values: `light` (default), `dark`, and `auto` (follows `prefers-color-scheme: dark`).
 
 The widget renders nothing for guests or authenticated users who have no eligible surveys (0 DB queries for guests).
 
@@ -144,7 +151,78 @@ In Inertia.js, Livewire (`wire:navigate` / `@persist`), or other SPAs where your
 
 This keeps a lightweight mount container in the DOM that automatically refreshes eligibility via `GET /simple-surveys/widget` on `inertia:navigate`, `livewire:navigated`, or when you dispatch `window.dispatchEvent(new CustomEvent('simple-surveys:refresh'))`.
 
-For custom React/Vue/Svelte frontends that want raw JSON instead of the built-in Blade widget, query `GET /simple-surveys/eligible` (returns `200 { "survey": ... }` or `{ "survey": null }`).
+For custom React/Vue/Svelte frontends that want raw JSON instead of the built-in Blade widget, query `GET /simple-surveys/eligible` (returns `200 { "survey": ... }` including resolved `appearance` presets & Dashboard overrides, or `{ "survey": null }`).
+
+## Appearance & Styling Customization
+
+Every built-in widget CSS rule uses zero-specificity `:where(...)` selectors and CSS custom properties (`--lss-*`), so your application's stylesheet always overrides defaults cleanly without `!important`.
+
+**Style precedence (lowest → highest):**
+1. Built-in widget defaults (`light` / `dark` / `auto` preset)
+2. Global CSS overrides in your codebase (`.lss-root` or `:root`)
+3. Per-survey CSS overrides in your codebase (`[data-lss-survey="your-survey-key"]`)
+4. Per-survey overrides saved from the Admin Dashboard **Appearance** tab
+
+### 1. Global & Per-Survey CSS in Your Codebase
+
+Publish the starter override stylesheet into `resources/css/simple-surveys.css`:
+
+```bash
+php artisan vendor:publish --tag="simple-surveys-styles"
+```
+
+Then import it into your main stylesheet (e.g. `resources/css/app.css`):
+
+```css
+@import './simple-surveys.css';
+```
+
+Edit `resources/css/simple-surveys.css` to style all surveys globally or customize individual surveys using `data-lss-survey`:
+
+```css
+/* Global overrides (applies to every survey) */
+.lss-root {
+    --lss-accent: #10b981;
+    --lss-radius: 14px;
+    --lss-card-width: 420px;
+}
+
+/* Per-survey overrides */
+[data-lss-survey="onboarding-feedback"] {
+    --lss-accent: #0284c7;
+    --lss-bg: #f8fafc;
+    --lss-card-width: 460px;
+}
+
+[data-lss-survey="onboarding-feedback"] .lss-btn-primary {
+    border-radius: 9999px;
+}
+```
+
+For full markup customization, you can also publish the Blade views:
+
+```bash
+php artisan vendor:publish --tag="simple-surveys-views"
+```
+
+### 2. Per-Survey Visual Styling in the Admin Dashboard
+
+Open any registered survey in `/simple-surveys/admin/{surveyKey}` and click the **Appearance** tab to visually customize:
+
+- **Presets & Placement:** Theme (`light`, `dark`, `auto`), placement (`bottom-right`, `bottom-left`, `top-right`, `top-left`, `center`), and quick accent palettes.
+- **Colors:** Button/accent, hover, button text, background, surface, border, primary text, and muted text.
+- **Dimensions & Shape:** Card width, card max height, banner max width, and card/button/input border radii.
+- **Typography:** Base font size and font family.
+
+Changes update a **live interactive preview** (both expanded card and collapsed banner) before saving. Any field left blank continues to inherit from your codebase CSS, and clicking **Reset to Defaults** clears all Dashboard overrides for that survey.
+
+To enforce strictly CSS-only styling across your team, disable the Dashboard editor in `config/simple-surveys.php`:
+
+```php
+'admin' => [
+    'appearance_editor' => false,
+],
+```
 
 ### 3. Sync Surveys to the Database (Optional)
 
@@ -172,6 +250,7 @@ Visit `/simple-surveys/admin` (configurable via `config/simple-surveys.php`) to 
 - Per-question analytics (averages/min/max for numeric & rating questions, percentage bar distributions for choice/boolean/rating questions, and recent text answers).
 - Paginated individual responses and streamed **CSV export**.
 - **End Survey Now**, **Re-open Survey**, and **Reset Responses** controls (with confirmation modals).
+- **Appearance** tab per survey with a live card/banner preview for customizing theme, placement, colors, sizing, radii, and typography (toggleable via `admin.appearance_editor`).
 
 ### Controlling Admin Access
 
@@ -201,7 +280,7 @@ Key options in `config/simple-surveys.php`:
 - `respondent_key_type` — `'id'` (default), `'uuid'`, or `'ulid'`.
 - `guard` — Auth guard name (`null` uses your app's default guard).
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.
-- `admin` — Enable/disable admin dashboard routes, prefix, middleware, and Gate ability name.
+- `admin` — Enable/disable admin dashboard routes, prefix, middleware, Gate ability name, and `appearance_editor` toggle.
 
 ## Testing & Quality
 

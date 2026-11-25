@@ -73,5 +73,6 @@ return [
         'prefix' => 'simple-surveys/admin',
         'middleware' => ['web', 'auth'],
         'gate' => 'viewSimpleSurveys',
+        'appearance_editor' => true,
     ],
 ];

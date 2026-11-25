@@ -1,0 +1,524 @@
+/*
+ * Laravel Simple Surveys — Core Widget Stylesheet
+ *
+ * BACKWARDS-COMPATIBILITY CONTRACT:
+ * - Every public `--lss-*` CSS custom property and `.lss-*` / `[data-lss-*]`
+ *   selector hook is part of the public styling API shared with the publishable
+ *   `resources/css/simple-surveys.css` starter stylesheet.
+ * - Never rename or remove existing `--lss-*` variables or `.lss-*` classes
+ *   without keeping backwards-compatible fallbacks.
+ * - Keep all default rules wrapped in `:where(...)` (zero specificity) and
+ *   read tokens via internal `--_lss-*` variables with `var(--lss-*, <default>)`
+ *   so host application CSS always overrides cleanly without `!important`.
+ */
+
+:where(.lss-root) {
+    --_lss-accent: var(--lss-accent, #4f46e5);
+    --_lss-accent-hover: var(--lss-accent-hover, color-mix(in srgb, var(--_lss-accent) 88%, #000000));
+    --_lss-accent-soft: var(--lss-accent-soft, color-mix(in srgb, var(--_lss-accent) 12%, transparent));
+    --_lss-accent-ring: var(--lss-accent-ring, color-mix(in srgb, var(--_lss-accent) 18%, transparent));
+    --_lss-btn-text: var(--lss-btn-text, #ffffff);
+    --_lss-bg: var(--lss-bg, #ffffff);
+    --_lss-surface: var(--lss-surface, #f8fafc);
+    --_lss-border: var(--lss-border, #e2e8f0);
+    --_lss-text: var(--lss-text, #0f172a);
+    --_lss-muted: var(--lss-muted, #64748b);
+    --_lss-danger: var(--lss-danger, #dc2626);
+    --_lss-danger-soft: var(--lss-danger-soft, #fef2f2);
+    --_lss-danger-border: var(--lss-danger-border, #fecaca);
+    --_lss-success: var(--lss-success, #16a34a);
+    --_lss-success-soft: var(--lss-success-soft, #dcfce7);
+    --_lss-radius: var(--lss-radius, 12px);
+    --_lss-btn-radius: var(--lss-btn-radius, 8px);
+    --_lss-input-radius: var(--lss-input-radius, 8px);
+    --_lss-card-width: var(--lss-card-width, 390px);
+    --_lss-card-max-height: var(--lss-card-max-height, 82vh);
+    --_lss-banner-max-width: var(--lss-banner-max-width, 380px);
+    --_lss-font-family: var(--lss-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    --_lss-font-size: var(--lss-font-size, 14px);
+    --_lss-shadow: var(--lss-shadow, 0 12px 32px -4px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08));
+    --_lss-backdrop: var(--lss-backdrop, rgba(15, 23, 42, 0.48));
+    --_lss-z-index: var(--lss-z-index, 9999);
+    --_lss-offset: var(--lss-offset, 20px);
+
+    position: fixed;
+    z-index: var(--_lss-z-index);
+    font-family: var(--_lss-font-family);
+    font-size: var(--_lss-font-size);
+    line-height: 1.5;
+    color: var(--_lss-text);
+    max-width: calc(100vw - 32px);
+    color-scheme: light;
+}
+
+:where(.lss-root[data-lss-theme="dark"]) {
+    --_lss-accent: var(--lss-accent, #6366f1);
+    --_lss-accent-hover: var(--lss-accent-hover, color-mix(in srgb, var(--_lss-accent) 85%, #ffffff));
+    --_lss-accent-soft: var(--lss-accent-soft, color-mix(in srgb, var(--_lss-accent) 22%, transparent));
+    --_lss-accent-ring: var(--lss-accent-ring, color-mix(in srgb, var(--_lss-accent) 32%, transparent));
+    --_lss-btn-text: var(--lss-btn-text, #ffffff);
+    --_lss-bg: var(--lss-bg, #0f172a);
+    --_lss-surface: var(--lss-surface, #1e293b);
+    --_lss-border: var(--lss-border, #334155);
+    --_lss-text: var(--lss-text, #f8fafc);
+    --_lss-muted: var(--lss-muted, #94a3b8);
+    --_lss-danger: var(--lss-danger, #f87171);
+    --_lss-danger-soft: var(--lss-danger-soft, rgba(220, 38, 38, 0.16));
+    --_lss-danger-border: var(--lss-danger-border, rgba(248, 113, 113, 0.35));
+    --_lss-success: var(--lss-success, #4ade80);
+    --_lss-success-soft: var(--lss-success-soft, rgba(22, 163, 74, 0.18));
+    --_lss-shadow: var(--lss-shadow, 0 18px 42px -6px rgba(0, 0, 0, 0.55), 0 6px 18px -4px rgba(0, 0, 0, 0.4));
+    --_lss-backdrop: var(--lss-backdrop, rgba(2, 6, 23, 0.72));
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :where(.lss-root[data-lss-theme="auto"]) {
+        --_lss-accent: var(--lss-accent, #6366f1);
+        --_lss-accent-hover: var(--lss-accent-hover, color-mix(in srgb, var(--_lss-accent) 85%, #ffffff));
+        --_lss-accent-soft: var(--lss-accent-soft, color-mix(in srgb, var(--_lss-accent) 22%, transparent));
+        --_lss-accent-ring: var(--lss-accent-ring, color-mix(in srgb, var(--_lss-accent) 32%, transparent));
+        --_lss-btn-text: var(--lss-btn-text, #ffffff);
+        --_lss-bg: var(--lss-bg, #0f172a);
+        --_lss-surface: var(--lss-surface, #1e293b);
+        --_lss-border: var(--lss-border, #334155);
+        --_lss-text: var(--lss-text, #f8fafc);
+        --_lss-muted: var(--lss-muted, #94a3b8);
+        --_lss-danger: var(--lss-danger, #f87171);
+        --_lss-danger-soft: var(--lss-danger-soft, rgba(220, 38, 38, 0.16));
+        --_lss-danger-border: var(--lss-danger-border, rgba(248, 113, 113, 0.35));
+        --_lss-success: var(--lss-success, #4ade80);
+        --_lss-success-soft: var(--lss-success-soft, rgba(22, 163, 74, 0.18));
+        --_lss-shadow: var(--lss-shadow, 0 18px 42px -6px rgba(0, 0, 0, 0.55), 0 6px 18px -4px rgba(0, 0, 0, 0.4));
+        --_lss-backdrop: var(--lss-backdrop, rgba(2, 6, 23, 0.72));
+        color-scheme: dark;
+    }
+}
+
+:where(.lss-root, .lss-root *) {
+    box-sizing: border-box;
+}
+
+:where(.lss-pos-bottom-right) {
+    bottom: var(--_lss-offset);
+    right: var(--_lss-offset);
+}
+
+:where(.lss-pos-bottom-left) {
+    bottom: var(--_lss-offset);
+    left: var(--_lss-offset);
+}
+
+:where(.lss-pos-top-right) {
+    top: var(--_lss-offset);
+    right: var(--_lss-offset);
+}
+
+:where(.lss-pos-top-left) {
+    top: var(--_lss-offset);
+    left: var(--_lss-offset);
+}
+
+:where(.lss-pos-center) {
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    pointer-events: none;
+}
+
+:where(.lss-pos-center .lss-banner) {
+    position: fixed;
+    bottom: var(--_lss-offset);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: min(var(--_lss-banner-max-width), calc(100vw - 32px));
+    pointer-events: auto;
+}
+
+:where(.lss-backdrop) {
+    display: none;
+}
+
+:where(.lss-pos-center .lss-backdrop) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: var(--_lss-backdrop);
+    backdrop-filter: blur(2px);
+    pointer-events: auto;
+    z-index: 0;
+}
+
+:where(.lss-pos-center .lss-card) {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: calc(100vw - 32px);
+    pointer-events: auto;
+    z-index: 1;
+}
+
+.lss-hidden {
+    display: none !important;
+}
+
+:where(.lss-banner) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--_lss-bg);
+    border: 1px solid var(--_lss-border);
+    border-radius: var(--_lss-radius);
+    box-shadow: var(--_lss-shadow);
+    padding: 12px 14px;
+    max-width: var(--_lss-banner-max-width);
+}
+
+:where(.lss-banner-icon) {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--_lss-btn-radius);
+    background: var(--_lss-accent-soft);
+    color: var(--_lss-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+:where(.lss-banner-text) {
+    flex: 1;
+    font-weight: 500;
+    color: var(--_lss-text);
+    margin: 0;
+    font-size: 0.964em;
+}
+
+:where(.lss-banner-actions) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+:where(.lss-btn-primary) {
+    appearance: none;
+    border: none;
+    background: var(--_lss-accent);
+    color: var(--_lss-btn-text);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.929em;
+    padding: 7px 12px;
+    border-radius: var(--_lss-btn-radius);
+    cursor: pointer;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+:where(.lss-btn-primary:hover) {
+    background: var(--_lss-accent-hover);
+}
+
+:where(.lss-btn-primary:disabled) {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+:where(.lss-btn-icon) {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--_lss-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: calc(var(--_lss-btn-radius) * 0.75);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.286em;
+    line-height: 1;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+:where(.lss-btn-icon:hover) {
+    background: var(--_lss-surface);
+    color: var(--_lss-text);
+}
+
+:where(.lss-card) {
+    width: var(--_lss-card-width);
+    max-width: 100%;
+    max-height: var(--_lss-card-max-height);
+    display: flex;
+    flex-direction: column;
+    background: var(--_lss-bg);
+    border: 1px solid var(--_lss-border);
+    border-radius: var(--_lss-radius);
+    box-shadow: var(--_lss-shadow);
+    overflow: hidden;
+}
+
+:where(.lss-card-header) {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--_lss-border);
+}
+
+:where(.lss-card-title) {
+    margin: 0;
+    font-size: 1.071em;
+    font-weight: 600;
+    color: var(--_lss-text);
+}
+
+:where(.lss-card-desc) {
+    margin: 4px 0 0;
+    font-size: 0.929em;
+    color: var(--_lss-muted);
+}
+
+:where(.lss-form) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 0;
+}
+
+:where(.lss-card-body) {
+    padding: 16px 18px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+:where(.lss-field) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+:where(.lss-label) {
+    font-size: 0.964em;
+    font-weight: 500;
+    color: var(--_lss-text);
+    margin: 0;
+}
+
+:where(.lss-required) {
+    color: var(--_lss-danger);
+    margin-left: 2px;
+}
+
+:where(.lss-help) {
+    font-size: 0.857em;
+    color: var(--_lss-muted);
+    margin: -2px 0 0;
+}
+
+:where(.lss-input, .lss-textarea, .lss-select) {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--_lss-border);
+    border-radius: var(--_lss-input-radius);
+    font-family: inherit;
+    font-size: 0.964em;
+    color: var(--_lss-text);
+    background: var(--_lss-bg);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:where(.lss-input:focus, .lss-textarea:focus, .lss-select:focus) {
+    border-color: var(--_lss-accent);
+    box-shadow: 0 0 0 3px var(--_lss-accent-ring);
+}
+
+:where(.lss-textarea) {
+    resize: vertical;
+    min-height: 76px;
+}
+
+:where(.lss-options) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+:where(.lss-option-item) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--_lss-border);
+    border-radius: var(--_lss-input-radius);
+    cursor: pointer;
+    font-size: 0.964em;
+    color: var(--_lss-text);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+:where(.lss-option-item:hover) {
+    background: var(--_lss-surface);
+}
+
+:where(.lss-option-item input) {
+    margin: 0;
+    accent-color: var(--_lss-accent);
+}
+
+:where(.lss-rating-group) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+:where(.lss-rating-item) {
+    position: relative;
+    flex: 1 0 32px;
+    max-width: 44px;
+}
+
+:where(.lss-rating-item input) {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+:where(.lss-rating-item span) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    border: 1px solid var(--_lss-border);
+    border-radius: var(--_lss-input-radius);
+    font-weight: 600;
+    font-size: 0.929em;
+    cursor: pointer;
+    background: var(--_lss-bg);
+    color: var(--_lss-text);
+    transition: all 0.15s ease;
+}
+
+:where(.lss-rating-item span:hover) {
+    border-color: var(--_lss-accent);
+    background: var(--_lss-accent-soft);
+}
+
+:where(.lss-rating-item input:checked + span) {
+    background: var(--_lss-accent);
+    border-color: var(--_lss-accent);
+    color: var(--_lss-btn-text);
+}
+
+:where(.lss-boolean-group) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+:where(.lss-boolean-item) {
+    position: relative;
+}
+
+:where(.lss-boolean-item input) {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+:where(.lss-boolean-item span) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border: 1px solid var(--_lss-border);
+    border-radius: var(--_lss-input-radius);
+    font-weight: 500;
+    font-size: 0.964em;
+    cursor: pointer;
+    background: var(--_lss-bg);
+    color: var(--_lss-text);
+    transition: all 0.15s ease;
+}
+
+:where(.lss-boolean-item input:checked + span) {
+    background: var(--_lss-accent-soft);
+    border-color: var(--_lss-accent);
+    color: var(--_lss-accent);
+    font-weight: 600;
+}
+
+:where(.lss-error) {
+    font-size: 0.857em;
+    color: var(--_lss-danger);
+    margin: 0;
+}
+
+:where(.lss-general-error) {
+    padding: 8px 10px;
+    border-radius: var(--_lss-input-radius);
+    background: var(--_lss-danger-soft);
+    border: 1px solid var(--_lss-danger-border);
+    color: var(--_lss-danger);
+    font-size: 0.893em;
+}
+
+:where(.lss-card-footer) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--_lss-border);
+    background: var(--_lss-surface);
+}
+
+:where(.lss-btn-link) {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--_lss-muted);
+    font-family: inherit;
+    font-size: 0.893em;
+    cursor: pointer;
+    padding: 4px 0;
+    text-decoration: underline;
+}
+
+:where(.lss-btn-link:hover) {
+    color: var(--_lss-text);
+}
+
+:where(.lss-thanks) {
+    padding: 24px 18px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+:where(.lss-thanks-icon) {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    background: var(--_lss-success-soft);
+    color: var(--_lss-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+:where(.lss-thanks-msg) {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.036em;
+    color: var(--_lss-text);
+}

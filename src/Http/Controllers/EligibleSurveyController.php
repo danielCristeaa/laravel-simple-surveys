@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Http\Controllers;
 
 use DanielCristea\SimpleSurveys\PageContext;
+use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySerializer;
@@ -18,6 +19,7 @@ final class EligibleSurveyController
     public function __construct(
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
+        private readonly SurveyAppearanceResolver $appearanceResolver,
         private readonly SurveySerializer $serializer,
     ) {}
 
@@ -43,8 +45,15 @@ final class EligibleSurveyController
             $context,
         );
 
+        $payload = null;
+
+        if ($activeSurvey !== null) {
+            $appearance = $this->appearanceResolver->forSurvey($activeSurvey);
+            $payload = $this->serializer->toArray($activeSurvey, $appearance);
+        }
+
         return (new JsonResponse([
-            'survey' => $activeSurvey !== null ? $this->serializer->toArray($activeSurvey) : null,
+            'survey' => $payload,
         ]))->header('Cache-Control', 'no-store, private');
     }
 

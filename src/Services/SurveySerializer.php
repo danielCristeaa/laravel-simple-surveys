@@ -6,6 +6,7 @@ namespace DanielCristea\SimpleSurveys\Services;
 
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
+use DanielCristea\SimpleSurveys\SurveyAppearance;
 
 final class SurveySerializer
 {
@@ -19,6 +20,11 @@ final class SurveySerializer
      *     thank_you_message: string,
      *     dismissible: bool,
      *     reprompt_after_dismiss: bool,
+     *     appearance: array{
+     *         position: string,
+     *         theme: string,
+     *         styles: array<string, string>
+     *     },
      *     urls: array{open: string, submit: string, dismiss: string},
      *     questions: array<int, array{
      *         key: string,
@@ -35,7 +41,7 @@ final class SurveySerializer
      *     }>
      * }
      */
-    public function toArray(Survey $survey): array
+    public function toArray(Survey $survey, ?SurveyAppearance $appearance = null): array
     {
         $questions = [];
 
@@ -52,6 +58,7 @@ final class SurveySerializer
             'thank_you_message' => $survey->getThankYouMessage(),
             'dismissible' => $survey->isDismissible(),
             'reprompt_after_dismiss' => $survey->getRepromptAfter() !== null,
+            'appearance' => ($appearance ?? new SurveyAppearance)->toArray(),
             'urls' => [
                 'open' => route('simple-surveys.open', $survey->key()),
                 'submit' => route('simple-surveys.responses.store', $survey->key()),

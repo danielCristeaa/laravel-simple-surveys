@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonInterface|null $ends_at
  * @property bool $dismissible
  * @property int $priority
+ * @property array<string, mixed>|null $appearance
  * @property CarbonInterface|null $created_at
  * @property CarbonInterface|null $updated_at
  * @property-read Collection<int, SurveyQuestion> $questions
@@ -42,6 +43,7 @@ class SurveyRecord extends Model
         'ends_at',
         'dismissible',
         'priority',
+        'appearance',
     ];
 
     public function getTable(): string
@@ -64,6 +66,7 @@ class SurveyRecord extends Model
             'ends_at' => 'datetime',
             'dismissible' => 'boolean',
             'priority' => 'integer',
+            'appearance' => 'array',
         ];
     }
 

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys\View\Components;
 
+use DanielCristea\SimpleSurveys\Enums\WidgetPosition;
+use DanielCristea\SimpleSurveys\Enums\WidgetTheme;
 use DanielCristea\SimpleSurveys\PageContext;
+use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
@@ -27,25 +30,36 @@ final class Widget extends Component
 
     public string $position;
 
+    public string $theme;
+
+    public string $inlineStyle = '';
+
     public bool $dynamic;
 
     public function __construct(
         SurveyRegistry $registry,
         SurveyEligibilityResolver $eligibility,
+        SurveyAppearanceResolver $appearanceResolver,
         Request $request,
         ?string $survey = null,
         string $position = 'bottom-right',
+        ?string $theme = null,
         bool $dynamic = false,
     ) {
-        $this->position = in_array($position, ['bottom-right', 'bottom-left'], true)
-            ? $position
-            : 'bottom-right';
+        $defaultPosition = WidgetPosition::tryFrom($position) ?? WidgetPosition::BottomRight;
+        $explicitTheme = $theme !== null && $theme !== ''
+            ? WidgetTheme::tryFrom($theme)
+            : null;
+
+        $this->position = $defaultPosition->value;
+        $this->theme = ($explicitTheme ?? WidgetTheme::Light)->value;
         $this->dynamic = $dynamic;
 
         if ($this->dynamic) {
             $query = array_filter([
                 'survey' => $survey !== null && $survey !== '' ? $survey : null,
-                'position' => $this->position,
+                'position' => $defaultPosition->value,
+                'theme' => $explicitTheme?->value,
             ], static fn (?string $value): bool => $value !== null);
 
             $this->widgetEndpointUrl = route('simple-surveys.widget', $query);
@@ -71,6 +85,12 @@ final class Widget extends Component
         }
 
         if ($this->activeSurvey !== null) {
+            $appearance = $appearanceResolver->forSurvey($this->activeSurvey);
+
+            $this->position = $appearance->resolvedPosition($defaultPosition)->value;
+            $this->theme = $appearance->resolvedTheme($explicitTheme)->value;
+            $this->inlineStyle = $appearance->toInlineStyle();
+
             $this->submitUrl = route('simple-surveys.responses.store', $this->activeSurvey->key());
             $this->dismissUrl = route('simple-surveys.dismiss', $this->activeSurvey->key());
             $this->openUrl = route('simple-surveys.open', $this->activeSurvey->key());

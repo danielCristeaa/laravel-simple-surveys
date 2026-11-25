@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use DanielCristea\SimpleSurveys\Http\Controllers\Admin\SurveyAppearanceController;
 use DanielCristea\SimpleSurveys\Http\Controllers\Admin\SurveyExportController;
 use DanielCristea\SimpleSurveys\Http\Controllers\Admin\SurveyResetController;
 use DanielCristea\SimpleSurveys\Http\Controllers\Admin\SurveyResultsController;
@@ -13,6 +14,15 @@ Route::get('/', [SurveyResultsController::class, 'index'])
 
 Route::get('/{surveyKey}', [SurveyResultsController::class, 'show'])
     ->name('simple-surveys.admin.show');
+
+Route::get('/{surveyKey}/appearance', [SurveyAppearanceController::class, 'edit'])
+    ->name('simple-surveys.admin.appearance.edit');
+
+Route::put('/{surveyKey}/appearance', [SurveyAppearanceController::class, 'update'])
+    ->name('simple-surveys.admin.appearance.update');
+
+Route::delete('/{surveyKey}/appearance', [SurveyAppearanceController::class, 'destroy'])
+    ->name('simple-surveys.admin.appearance.reset');
 
 Route::get('/{surveyKey}/export', SurveyExportController::class)
     ->name('simple-surveys.admin.export');

@@ -73,6 +73,17 @@
         </div>
     </div>
 
+    @if ($results['registered'] && config('simple-surveys.admin.appearance_editor', true))
+        <nav class="tabs" aria-label="Survey sections">
+            <a href="{{ route('simple-surveys.admin.show', $results['key']) }}" class="tab-link is-active" aria-current="page">
+                Results &amp; Metrics
+            </a>
+            <a href="{{ route('simple-surveys.admin.appearance.edit', $results['key']) }}" class="tab-link">
+                Appearance
+            </a>
+        </nav>
+    @endif
+
     <div class="kpi-grid">
         <div class="card">
             <div class="kpi-label">Responses</div>

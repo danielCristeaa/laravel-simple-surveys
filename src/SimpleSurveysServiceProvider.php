@@ -6,6 +6,7 @@ namespace DanielCristea\SimpleSurveys;
 
 use DanielCristea\SimpleSurveys\Console\Commands\SyncSurveysCommand;
 use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
+use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
@@ -25,7 +26,10 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
             ->name('simple-surveys')
             ->hasConfigFile('simple-surveys')
             ->hasViews('simple-surveys')
-            ->hasMigration('create_simple_surveys_tables')
+            ->hasMigrations([
+                'create_simple_surveys_tables',
+                'add_appearance_to_simple_surveys_table',
+            ])
             ->hasCommand(SyncSurveysCommand::class);
     }
 
@@ -33,6 +37,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
     {
         $this->app->singleton(SurveyRegistry::class);
         $this->app->singleton(SurveyEligibilityResolver::class);
+        $this->app->singleton(SurveyAppearanceResolver::class);
         $this->app->singleton(SurveyValidator::class);
         $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SurveyResultsAggregator::class);
@@ -43,6 +48,12 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
     public function packageBooted(): void
     {
         Blade::componentNamespace('DanielCristea\\SimpleSurveys\\View\\Components', 'simple-surveys');
+
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/../resources/css/simple-surveys.css' => resource_path('css/simple-surveys.css'),
+            ], 'simple-surveys-styles');
+        }
 
         $this->registerCustomerRoutes();
         $this->registerAdminRoutes();

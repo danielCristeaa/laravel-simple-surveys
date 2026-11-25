@@ -1,0 +1,106 @@
+/*
+ * Laravel Simple Surveys — Custom Theme & Per-Survey Overrides
+ *
+ * Publish with:
+ *   php artisan vendor:publish --tag="simple-surveys-styles"
+ *
+ * Then import into your application's main stylesheet (e.g. resources/css/app.css):
+ *   @import './simple-surveys.css';
+ *
+ * All built-in widget defaults use zero-specificity `:where(...)` selectors,
+ * so any rules below override them cleanly without needing `!important`.
+ *
+ * Precedence (lowest -> highest):
+ *   1. Built-in widget defaults (light / dark / auto preset)
+ *   2. Global CSS overrides in this file (`.lss-root` or `:root`)
+ *   3. Per-survey CSS overrides (`[data-lss-survey="your-survey-key"]`)
+ *   4. Per-survey Admin Dashboard Appearance overrides (when configured)
+ */
+
+/* ==========================================================================
+   1. Global Survey Styles (applies to every survey widget)
+   ========================================================================== */
+
+.lss-root {
+    /* Colors */
+    /* --lss-accent: #4f46e5; */
+    /* --lss-accent-hover: #4338ca; */
+    /* --lss-accent-soft: rgba(79, 70, 229, 0.12); */
+    /* --lss-accent-ring: rgba(79, 70, 229, 0.18); */
+    /* --lss-btn-text: #ffffff; */
+    /* --lss-bg: #ffffff; */
+    /* --lss-surface: #f8fafc; */
+    /* --lss-border: #e2e8f0; */
+    /* --lss-text: #0f172a; */
+    /* --lss-muted: #64748b; */
+    /* --lss-danger: #dc2626; */
+    /* --lss-danger-soft: #fef2f2; */
+    /* --lss-danger-border: #fecaca; */
+    /* --lss-success: #16a34a; */
+    /* --lss-success-soft: #dcfce7; */
+
+    /* Dimensions & Layout */
+    /* --lss-card-width: 390px; */
+    /* --lss-card-max-height: 82vh; */
+    /* --lss-banner-max-width: 380px; */
+    /* --lss-offset: 20px; */
+    /* --lss-z-index: 9999; */
+
+    /* Shape & Elevation */
+    /* --lss-radius: 12px; */
+    /* --lss-btn-radius: 8px; */
+    /* --lss-input-radius: 8px; */
+    /* --lss-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08); */
+    /* --lss-backdrop: rgba(15, 23, 42, 0.48); */
+
+    /* Typography */
+    /* --lss-font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; */
+    /* --lss-font-size: 14px; */
+}
+
+/* ==========================================================================
+   2. Dark Mode Overrides (optional)
+   ========================================================================== */
+
+/*
+ * Works with Tailwind class-based dark mode (`.dark`) or the widget's dark theme:
+ *
+ * .dark .lss-root,
+ * .lss-root[data-lss-theme="dark"] {
+ *     --lss-bg: #0f172a;
+ *     --lss-surface: #1e293b;
+ *     --lss-border: #334155;
+ *     --lss-text: #f8fafc;
+ *     --lss-muted: #94a3b8;
+ *     --lss-accent: #6366f1;
+ * }
+ */
+
+/* ==========================================================================
+   3. Per-Survey Overrides
+   ========================================================================== */
+
+/*
+ * Target any individual survey by its registered key via `data-lss-survey`:
+ *
+ * [data-lss-survey="onboarding-feedback"] {
+ *     --lss-accent: #10b981;
+ *     --lss-card-width: 440px;
+ *     --lss-radius: 16px;
+ * }
+ *
+ * You can also style specific widget elements directly:
+ *
+ * [data-lss-survey="onboarding-feedback"] .lss-btn-primary {
+ *     letter-spacing: 0.02em;
+ * }
+ *
+ * Available element classes:
+ *   .lss-root, .lss-backdrop, .lss-banner, .lss-banner-icon, .lss-banner-text,
+ *   .lss-banner-actions, .lss-card, .lss-card-header, .lss-card-title,
+ *   .lss-card-desc, .lss-card-body, .lss-card-footer, .lss-field, .lss-label,
+ *   .lss-help, .lss-input, .lss-textarea, .lss-select, .lss-options,
+ *   .lss-option-item, .lss-rating-group, .lss-rating-item, .lss-boolean-group,
+ *   .lss-boolean-item, .lss-btn-primary, .lss-btn-icon, .lss-btn-link,
+ *   .lss-error, .lss-general-error, .lss-thanks, .lss-thanks-icon, .lss-thanks-msg
+ */

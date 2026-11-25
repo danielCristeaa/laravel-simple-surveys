@@ -62,5 +62,8 @@ abstract class TestCase extends Orchestra
 
         $migration = require __DIR__.'/../database/migrations/create_simple_surveys_tables.php.stub';
         $migration->up();
+
+        $appearanceMigration = require __DIR__.'/../database/migrations/add_appearance_to_simple_surveys_table.php.stub';
+        $appearanceMigration->up();
     }
 }
