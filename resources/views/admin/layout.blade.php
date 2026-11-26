@@ -38,7 +38,7 @@
             padding: 14px 24px;
         }
         .topbar-inner {
-            max-width: 1120px;
+            max-width: 1280px;
             margin: 0 auto;
             display: flex;
             align-items: center;
@@ -61,7 +61,7 @@
             background: var(--accent);
         }
         .container {
-            max-width: 1120px;
+            max-width: 1280px;
             margin: 0 auto;
             padding: 28px 24px 64px;
         }
@@ -86,8 +86,8 @@
         }
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
             margin-bottom: 24px;
         }
         .card {
@@ -141,6 +141,11 @@
             cursor: pointer;
         }
         .btn:hover { background: var(--bg); text-decoration: none; }
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 12.5px;
+            white-space: nowrap;
+        }
         .btn-primary {
             background: var(--accent);
             border-color: var(--accent);
@@ -292,6 +297,37 @@
             letter-spacing: 0.04em;
             color: var(--muted);
             background: #f8fafc;
+        }
+        .table-surveys th,
+        .table-surveys td {
+            padding: 12px 10px;
+            vertical-align: middle;
+        }
+        .table-surveys th {
+            font-size: 11px;
+            line-height: 1.3;
+        }
+        .table-surveys th:first-child,
+        .table-surveys td:first-child {
+            padding-left: 18px;
+        }
+        .table-surveys th:last-child,
+        .table-surveys td:last-child {
+            padding-right: 18px;
+        }
+        .table-surveys .col-num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .table-surveys th.col-rate {
+            text-align: right;
+            white-space: normal;
+        }
+        .table-surveys td.col-actions,
+        .table-surveys th.col-actions {
+            text-align: right;
+            white-space: nowrap;
         }
         tr:last-child td { border-bottom: none; }
         .muted { color: var(--muted); }

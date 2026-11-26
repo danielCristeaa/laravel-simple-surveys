@@ -52,27 +52,27 @@
         </div>
     </div>
 
-    <div class="card" style="padding: 0;">
+    <div class="card" style="padding: 0; overflow: hidden;">
         @if ($summaries->isEmpty())
             <div class="empty">
                 No surveys found yet. Register a survey in your application using <code>SimpleSurveys::register(...)</code>.
             </div>
         @else
             <div class="table-wrap">
-                <table>
+                <table class="table-surveys">
                     <thead>
                         <tr>
                             <th>Survey</th>
                             <th>Status</th>
-                            <th>Questions</th>
-                            <th>Seen</th>
-                            <th>Opened</th>
-                            <th>Responses</th>
-                            <th>Abandoned</th>
-                            <th>Dismissals</th>
-                            <th title="Responses / Seen">Response Rate</th>
-                            <th title="Responses / Opened">Completion Rate</th>
-                            <th>Actions</th>
+                            <th class="col-num">Questions</th>
+                            <th class="col-num">Seen</th>
+                            <th class="col-num">Opened</th>
+                            <th class="col-num">Responses</th>
+                            <th class="col-num">Abandoned</th>
+                            <th class="col-num">Dismissals</th>
+                            <th class="col-rate" title="Responses / Seen">Response Rate</th>
+                            <th class="col-rate" title="Responses / Opened">Completion Rate</th>
+                            <th class="col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -84,7 +84,7 @@
                                     </a>
                                     <div class="muted" style="font-size: 12px;"><code>{{ $survey['key'] }}</code></div>
                                 </td>
-                                <td>
+                                <td style="white-space: nowrap;">
                                     <span class="badge badge-{{ $survey['status']->value }}">
                                         {{ $survey['status']->value }}
                                     </span>
@@ -92,29 +92,29 @@
                                         <span class="badge badge-closed">archived</span>
                                     @endif
                                 </td>
-                                <td>{{ $survey['questions_count'] }}</td>
-                                <td>{{ $survey['impressions_count'] }}</td>
-                                <td>{{ $survey['opens_count'] }}</td>
-                                <td><strong>{{ $survey['responses_count'] }}</strong></td>
-                                <td>{{ $survey['abandoned_count'] }}</td>
-                                <td>{{ $survey['dismissals_count'] }}</td>
-                                <td>
+                                <td class="col-num">{{ $survey['questions_count'] }}</td>
+                                <td class="col-num">{{ $survey['impressions_count'] }}</td>
+                                <td class="col-num">{{ $survey['opens_count'] }}</td>
+                                <td class="col-num"><strong>{{ $survey['responses_count'] }}</strong></td>
+                                <td class="col-num">{{ $survey['abandoned_count'] }}</td>
+                                <td class="col-num">{{ $survey['dismissals_count'] }}</td>
+                                <td class="col-num">
                                     @if ($survey['response_rate'] !== null)
                                         {{ $survey['response_rate'] }}%
                                     @else
                                         <span class="muted">—</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td class="col-num">
                                     @if ($survey['completion_rate'] !== null)
                                         {{ $survey['completion_rate'] }}%
                                     @else
                                         <span class="muted">—</span>
                                     @endif
                                 </td>
-                                <td style="white-space: nowrap;">
+                                <td class="col-actions">
                                     <div style="display: inline-flex; align-items: center; gap: 6px;">
-                                        <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" class="btn">
+                                        <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" class="btn btn-sm">
                                             View Results
                                         </a>
 
@@ -129,7 +129,7 @@
                                                 data-confirm-variant="warning"
                                             >
                                                 @csrf
-                                                <button type="submit" class="btn btn-warning">End Now</button>
+                                                <button type="submit" class="btn btn-sm btn-warning">End Now</button>
                                             </form>
                                         @elseif ($survey['registered'] && $survey['status'] === SurveyStatus::Closed)
                                             <form
@@ -142,7 +142,7 @@
                                                 data-confirm-variant="success"
                                             >
                                                 @csrf
-                                                <button type="submit" class="btn btn-success">Re-open</button>
+                                                <button type="submit" class="btn btn-sm btn-success">Re-open</button>
                                             </form>
                                         @endif
                                     </div>
