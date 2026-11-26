@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $respondent_type
  * @property int|string $respondent_id
  * @property CarbonInterface $dismissed_at
+ * @property string|null $source
+ * @property int $dismiss_count
  * @property CarbonInterface|null $created_at
  * @property CarbonInterface|null $updated_at
  * @property-read SurveyRecord $survey
@@ -29,6 +31,8 @@ class SurveyDismissal extends Model
         'respondent_type',
         'respondent_id',
         'dismissed_at',
+        'source',
+        'dismiss_count',
     ];
 
     public function getTable(): string
@@ -47,6 +51,7 @@ class SurveyDismissal extends Model
     {
         return [
             'dismissed_at' => 'datetime',
+            'dismiss_count' => 'integer',
         ];
     }
 

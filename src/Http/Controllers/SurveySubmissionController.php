@@ -9,12 +9,14 @@ use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
+use DanielCristea\SimpleSurveys\Models\SurveyOpen;
 use DanielCristea\SimpleSurveys\Models\SurveyQuestion;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
+use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +31,7 @@ final class SurveySubmissionController
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveyValidator $validator,
         private readonly SurveySynchronizer $synchronizer,
+        private readonly SurveyTrackingContextResolver $trackingContext,
     ) {}
 
     public function __invoke(Request $request, string $surveyKey): JsonResponse|RedirectResponse
@@ -84,12 +87,27 @@ final class SurveySubmissionController
 
         $answers = $this->validator->validate($survey, $request->all());
 
-        $url = $request->input('url');
-        $referer = $request->headers->get('referer');
+        $fallbackOpenedAt = null;
 
-        $metadata = array_filter([
-            'url' => is_string($url) && $url !== '' ? $url : (is_string($referer) ? $referer : null),
+        if ($request->input('duration_ms') === null && $existingRecord !== null) {
+            $fallbackOpenedAt = SurveyOpen::query()
+                ->forSurvey($existingRecord)
+                ->forRespondent($user)
+                ->first(['first_opened_at'])
+                ?->first_opened_at;
+        }
+
+        $context = array_filter([
+            'url' => $this->trackingContext->resolveUrl($request),
+            'duration_ms' => $this->trackingContext->resolveDurationMs($request, $fallbackOpenedAt),
         ], static fn (mixed $value): bool => $value !== null);
+
+        $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
+
+        $metadata = $context;
+        if ($tracking !== []) {
+            $metadata['tracking'] = $tracking;
+        }
 
         /** @var SurveyResponse $response */
         $response = DB::transaction(function () use ($survey, $user, $answers, $metadata, $existingDismissal): SurveyResponse {
@@ -129,7 +147,7 @@ final class SurveySubmissionController
             return $response->load(['survey', 'answers.question']);
         });
 
-        SurveySubmitted::dispatch($survey, $response, $user);
+        SurveySubmitted::dispatch($survey, $response, $user, $context, $tracking);
 
         if ($request->expectsJson()) {
             return new JsonResponse([

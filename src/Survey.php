@@ -63,6 +63,9 @@ final class Survey
     /** @var array<string, Question> */
     private array $questions = [];
 
+    /** @var array<int, array{url: string, events: array<int, string>, secret: string|null, headers: array<string, string>}> */
+    private array $webhooks = [];
+
     private function __construct(
         private readonly string $key,
     ) {
@@ -330,6 +333,47 @@ final class Survey
         $this->questions[$question->key()] = $question;
 
         return $this;
+    }
+
+    /**
+     * Register a webhook endpoint for lifecycle events on this survey.
+     *
+     * @param  array<int, string>  $events
+     * @param  array<string, string>  $headers
+     */
+    public function webhook(
+        string $url,
+        array $events = ['seen', 'opened', 'dismissed', 'submitted'],
+        ?string $secret = null,
+        array $headers = [],
+    ): self {
+        $normalizedUrl = trim($url);
+
+        if ($normalizedUrl === '') {
+            throw new InvalidArgumentException('Webhook URL cannot be empty.');
+        }
+
+        $normalizedEvents = array_values(array_unique(array_filter(
+            array_map(static fn (string $event): string => strtolower(trim($event)), $events),
+            static fn (string $event): bool => in_array($event, ['seen', 'opened', 'dismissed', 'submitted'], true),
+        )));
+
+        $this->webhooks[] = [
+            'url' => $normalizedUrl,
+            'events' => $normalizedEvents,
+            'secret' => $secret !== null && trim($secret) !== '' ? $secret : null,
+            'headers' => $headers,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * @return array<int, array{url: string, events: array<int, string>, secret: string|null, headers: array<string, string>}>
+     */
+    public function getWebhooks(): array
+    {
+        return $this->webhooks;
     }
 
     public function key(): string

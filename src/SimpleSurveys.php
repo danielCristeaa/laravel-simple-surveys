@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys;
 
 use Carbon\CarbonInterface;
+use Closure;
 use DanielCristea\SimpleSurveys\Contracts\SurveyDefinition;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
+use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 
@@ -21,6 +23,7 @@ final class SimpleSurveys
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveySynchronizer $synchronizer,
+        private readonly SurveyTrackingContextResolver $trackingContext,
     ) {}
 
     /**
@@ -60,6 +63,12 @@ final class SimpleSurveys
     public function clear(): void
     {
         $this->registry->clear();
+        $this->trackingContext->clear();
+    }
+
+    public function resolveTrackingContext(?Closure $callback): void
+    {
+        $this->trackingContext->resolveUsing($callback);
     }
 
     public function forUser(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): ?Survey

@@ -11,6 +11,7 @@ use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
+use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +24,7 @@ final class SurveyDismissalController
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveySynchronizer $synchronizer,
+        private readonly SurveyTrackingContextResolver $trackingContext,
     ) {}
 
     public function __invoke(Request $request, string $surveyKey): JsonResponse|RedirectResponse
@@ -73,13 +75,17 @@ final class SurveyDismissalController
             abort(403, 'You are not eligible for this survey.');
         }
 
+        $source = $this->trackingContext->resolveDismissalSource($request);
+
         /** @var SurveyDismissal $dismissal */
-        $dismissal = DB::transaction(function () use ($survey, $user, $existingDismissal): SurveyDismissal {
+        $dismissal = DB::transaction(function () use ($survey, $user, $existingDismissal, $source): SurveyDismissal {
             $record = $this->synchronizer->sync($survey);
 
             if ($existingDismissal !== null) {
                 $existingDismissal->update([
                     'dismissed_at' => now(),
+                    'source' => $source,
+                    'dismiss_count' => $existingDismissal->dismiss_count + 1,
                 ]);
 
                 return $existingDismissal;
@@ -90,10 +96,19 @@ final class SurveyDismissalController
                 'respondent_type' => $user->getMorphClass(),
                 'respondent_id' => $user->getKey(),
                 'dismissed_at' => now(),
+                'source' => $source,
+                'dismiss_count' => 1,
             ]);
         });
 
-        SurveyDismissed::dispatch($survey, $dismissal, $user);
+        $context = array_filter([
+            'url' => $this->trackingContext->resolveUrl($request),
+            'source' => $source,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
+
+        SurveyDismissed::dispatch($survey, $dismissal, $user, $context, $tracking);
 
         if ($request->expectsJson()) {
             return new JsonResponse([

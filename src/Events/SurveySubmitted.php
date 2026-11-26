@@ -13,9 +13,15 @@ final class SurveySubmitted
 {
     use Dispatchable;
 
+    /**
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $tracking
+     */
     public function __construct(
         public readonly Survey $survey,
         public readonly SurveyResponse $response,
         public readonly Model $respondent,
+        public readonly array $context = [],
+        public readonly array $tracking = [],
     ) {}
 }

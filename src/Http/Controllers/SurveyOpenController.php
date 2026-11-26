@@ -9,6 +9,7 @@ use DanielCristea\SimpleSurveys\Models\SurveyOpen;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
+use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +22,7 @@ final class SurveyOpenController
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveySynchronizer $synchronizer,
+        private readonly SurveyTrackingContextResolver $trackingContext,
     ) {}
 
     public function __invoke(Request $request, string $surveyKey): JsonResponse|RedirectResponse
@@ -71,7 +73,13 @@ final class SurveyOpenController
             ]);
         });
 
-        SurveyOpened::dispatch($survey, $open, $user);
+        $context = array_filter([
+            'url' => $this->trackingContext->resolveUrl($request),
+        ], static fn (mixed $value): bool => $value !== null);
+
+        $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
+
+        SurveyOpened::dispatch($survey, $open, $user, $context, $tracking);
 
         if ($request->expectsJson()) {
             return new JsonResponse([

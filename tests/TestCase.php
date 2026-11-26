@@ -68,5 +68,8 @@ abstract class TestCase extends Orchestra
 
         $impressionsMigration = require __DIR__.'/../database/migrations/create_simple_survey_impressions_table.php.stub';
         $impressionsMigration->up();
+
+        $dismissalTrackingMigration = require __DIR__.'/../database/migrations/add_tracking_metadata_to_simple_survey_dismissals_table.php.stub';
+        $dismissalTrackingMigration->up();
     }
 }

@@ -40,7 +40,7 @@
                 Take Survey
             </button>
             @if ($activeSurvey->isDismissible())
-                <button type="button" class="lss-btn-icon" data-lss-dismiss aria-label="Dismiss survey" title="Dismiss">
+                <button type="button" class="lss-btn-icon" data-lss-dismiss data-lss-dismiss-source="banner" aria-label="Dismiss survey" title="Dismiss">
                     &times;
                 </button>
             @endif
@@ -210,7 +210,7 @@
 
             <div class="lss-card-footer">
                 @if ($activeSurvey->isDismissible())
-                    <button type="button" class="lss-btn-link" data-lss-dismiss>
+                    <button type="button" class="lss-btn-link" data-lss-dismiss data-lss-dismiss-source="card">
                         @if ($activeSurvey->getRepromptAfter() !== null)
                             Remind me later
                         @else
@@ -260,9 +260,30 @@
             var dismissUrl = root.dataset.lssDismissUrl;
             var openUrl = root.dataset.lssOpenUrl;
             var impressionUrl = root.dataset.lssImpressionUrl || '';
+            var surveyKey = root.dataset.lssSurvey || '';
             var isSubmitted = false;
             var hasTrackedOpen = false;
+            var openedAt = null;
             var removeTimer = null;
+
+            function elapsedDurationMs() {
+                return openedAt !== null ? Math.max(0, Date.now() - openedAt) : null;
+            }
+
+            function emitSurveyEvent(name, detail) {
+                var payload = {
+                    surveyKey: surveyKey,
+                    url: window.location.pathname
+                };
+                if (detail && typeof detail === 'object') {
+                    Object.keys(detail).forEach(function (key) {
+                        payload[key] = detail[key];
+                    });
+                }
+                window.dispatchEvent(new CustomEvent('simple-surveys:' + name, {
+                    detail: payload
+                }));
+            }
 
             function removeWidget() {
                 if (removeTimer !== null) {
@@ -282,16 +303,20 @@
             }
 
             function trackImpression() {
-                if (!impressionUrl) {
+                var storageKey = 'lss_seen_' + surveyKey;
+                var alreadySeen = false;
+
+                try {
+                    alreadySeen = Boolean(window.sessionStorage && window.sessionStorage.getItem(storageKey) === '1');
+                } catch (e) {}
+
+                emitSurveyEvent('seen', { firstInSession: !alreadySeen });
+
+                if (!impressionUrl || alreadySeen) {
                     return;
                 }
 
-                var storageKey = 'lss_seen_' + (root.dataset.lssSurvey || '');
-
                 try {
-                    if (window.sessionStorage && window.sessionStorage.getItem(storageKey) === '1') {
-                        return;
-                    }
                     if (window.sessionStorage) {
                         window.sessionStorage.setItem(storageKey, '1');
                     }
@@ -305,7 +330,9 @@
                         'X-CSRF-TOKEN': getCsrfToken()
                     },
                     credentials: 'same-origin',
-                    body: JSON.stringify({})
+                    body: JSON.stringify({
+                        url: window.location.pathname
+                    })
                 }).then(function (response) {
                     if (!response.ok) {
                         try {
@@ -344,10 +371,15 @@
             }
 
             function openCard() {
+                if (openedAt === null) {
+                    openedAt = Date.now();
+                }
                 if (banner) banner.classList.add('lss-hidden');
                 if (backdrop && root.dataset.lssPosition === 'center') backdrop.classList.remove('lss-hidden');
                 if (card) card.classList.remove('lss-hidden');
                 if (openBtn) openBtn.setAttribute('aria-expanded', 'true');
+
+                emitSurveyEvent('opened');
 
                 if (!hasTrackedOpen && openUrl) {
                     hasTrackedOpen = true;
@@ -359,7 +391,9 @@
                             'X-CSRF-TOKEN': getCsrfToken()
                         },
                         credentials: 'same-origin',
-                        body: JSON.stringify({})
+                        body: JSON.stringify({
+                            url: window.location.pathname
+                        })
                     }).catch(function () {});
                 }
             }
@@ -373,6 +407,8 @@
                 if (backdrop) backdrop.classList.add('lss-hidden');
                 if (banner) banner.classList.remove('lss-hidden');
                 if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
+
+                emitSurveyEvent('minimized', { durationMs: elapsedDurationMs() });
             }
 
             if (openBtn) {
@@ -405,6 +441,8 @@
             dismissBtns.forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     btn.disabled = true;
+                    var source = btn.dataset.lssDismissSource || null;
+                    var durationMs = elapsedDurationMs();
                     fetch(dismissUrl, {
                         method: 'POST',
                         headers: {
@@ -413,8 +451,15 @@
                             'X-CSRF-TOKEN': getCsrfToken()
                         },
                         credentials: 'same-origin',
-                        body: JSON.stringify({})
+                        body: JSON.stringify({
+                            source: source,
+                            url: window.location.pathname
+                        })
                     }).then(function () {
+                        emitSurveyEvent('dismissed', {
+                            source: source,
+                            durationMs: durationMs
+                        });
                         root.remove();
                     }).catch(function () {
                         btn.disabled = false;
@@ -453,6 +498,15 @@
                         submitBtn.textContent = 'Submitting...';
                     }
 
+                    var durationMs = elapsedDurationMs();
+                    var submitPayload = {
+                        answers: answers,
+                        url: window.location.pathname
+                    };
+                    if (durationMs !== null) {
+                        submitPayload.duration_ms = durationMs;
+                    }
+
                     fetch(submitUrl, {
                         method: 'POST',
                         headers: {
@@ -461,10 +515,7 @@
                             'X-CSRF-TOKEN': getCsrfToken()
                         },
                         credentials: 'same-origin',
-                        body: JSON.stringify({
-                            answers: answers,
-                            url: window.location.pathname
-                        })
+                        body: JSON.stringify(submitPayload)
                     }).then(function (response) {
                         return response.json().catch(function () {
                             return {};
@@ -474,6 +525,10 @@
                     }).then(function (result) {
                         if (result.ok) {
                             isSubmitted = true;
+                            emitSurveyEvent('submitted', {
+                                answers: answers,
+                                durationMs: durationMs
+                            });
                             if (banner) {
                                 banner.remove();
                             }

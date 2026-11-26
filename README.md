@@ -264,14 +264,94 @@ Gate::define('viewSimpleSurveys', function ($user): bool {
 });
 ```
 
+## Analytics, Tracking Context & Webhooks
+
+### Browser `CustomEvent`s (GA4, PostHog, Mixpanel, Custom AJAX)
+
+The built-in widget dispatches bubbling `CustomEvent`s on `window` across the entire lifecycle so you can forward events to any frontend analytics SDK or custom endpoint:
+
+- `simple-surveys:seen` — `{ surveyKey, url, firstInSession }`
+- `simple-surveys:opened` — `{ surveyKey, url }`
+- `simple-surveys:minimized` — `{ surveyKey, url, durationMs }`
+- `simple-surveys:dismissed` — `{ surveyKey, url, source, durationMs }` (`source`: `'banner'` or `'card'`)
+- `simple-surveys:submitted` — `{ surveyKey, url, answers, durationMs }`
+
+```js
+window.addEventListener('simple-surveys:submitted', ({ detail }) => {
+    posthog.capture('survey_submitted', detail);
+});
+```
+
+### Tracking Context & Metadata Resolver
+
+Capture cookies (such as `distinct_id` or `click_id`) in `config/simple-surveys.php`:
+
+```php
+'tracking' => [
+    'impressions' => true,
+    'cookies' => [
+        'distinct_id' => 'ph_distinct_id',
+        'click_id',
+    ],
+],
+```
+
+> **Note:** For unencrypted cookies set by frontend scripts or third-party analytics SDKs (such as `ph_distinct_id` or `click_id`), exclude those cookie names from Laravel's cookie encryption via `$middleware->encryptCookies(except: ['ph_distinct_id', 'click_id'])` in `bootstrap/app.php`.
+
+Or register a server-side callback in `AppServiceProvider::boot()` to snapshot user traits and request attributes across all lifecycle events, stored response `metadata`, CSV exports, and webhook payloads:
+
+```php
+use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use Illuminate\Http\Request;
+
+SimpleSurveys::resolveTrackingContext(fn (Request $request, $user, $survey): array => [
+    'distinct_id' => $request->cookie('ph_distinct_id'),
+    'click_id' => $request->cookie('click_id'),
+    'plan' => $user->plan,
+]);
+```
+
+When responses include `duration_ms` (measured client-side by the widget, or derived server-side from `first_opened_at` to submission time for custom frontends) or resolved point-in-time tracking/cohort keys (such as `plan`, `distinct_id`, or `click_id`), the Admin Dashboard **Export CSV** automatically appends `Duration (ms)` and each tracking key as dedicated columns.
+
+### Lifecycle Webhooks
+
+Forward `seen`, `opened`, `dismissed`, and `submitted` events server-to-server with queued delivery, retries, custom headers, and optional HMAC-SHA256 signing (`X-Simple-Surveys-Signature`).
+
+Configure globally in `config/simple-surveys.php` (supports either a single default `url` or per-event URL overrides):
+
+```php
+'webhooks' => [
+    'enabled' => true,
+    'url' => env('SIMPLE_SURVEYS_WEBHOOK_URL'),
+    'events' => ['seen', 'opened', 'dismissed', 'submitted'],
+    'secret' => env('SIMPLE_SURVEYS_WEBHOOK_SECRET'),
+    'headers' => [
+        'Authorization' => 'Bearer ' . env('SIMPLE_SURVEYS_WEBHOOK_TOKEN'),
+    ],
+    'queued' => true,
+    'queue' => 'webhooks',
+],
+```
+
+Or attach webhooks directly to individual surveys:
+
+```php
+Survey::make('onboarding-feedback')
+    ->webhook(
+        url: 'https://data.example.com/hooks/surveys',
+        events: ['seen', 'opened', 'dismissed', 'submitted'],
+        secret: env('SURVEY_WEBHOOK_SECRET'),
+    );
+```
+
 ## Events
 
-The package dispatches four events you can listen to:
+The package dispatches four Laravel events you can listen to (each includes `$context` and `$tracking` arrays):
 
-- `DanielCristea\SimpleSurveys\Events\SurveySeen` (`$survey`, `$impression`, `$respondent`) — dispatched on a respondent's first recorded impression
-- `DanielCristea\SimpleSurveys\Events\SurveyOpened` (`$survey`, `$open`, `$respondent`)
-- `DanielCristea\SimpleSurveys\Events\SurveySubmitted` (`$survey`, `$response`, `$respondent`)
-- `DanielCristea\SimpleSurveys\Events\SurveyDismissed` (`$survey`, `$dismissal`, `$respondent`)
+- `DanielCristea\SimpleSurveys\Events\SurveySeen` (`$survey`, `$impression`, `$respondent`, `$context`, `$tracking`) — dispatched on a respondent's first recorded impression
+- `DanielCristea\SimpleSurveys\Events\SurveyOpened` (`$survey`, `$open`, `$respondent`, `$context`, `$tracking`)
+- `DanielCristea\SimpleSurveys\Events\SurveySubmitted` (`$survey`, `$response`, `$respondent`, `$context`, `$tracking`)
+- `DanielCristea\SimpleSurveys\Events\SurveyDismissed` (`$survey`, `$dismissal`, `$respondent`, `$context`, `$tracking`)
 
 ## Configuration
 
@@ -281,7 +361,8 @@ Key options in `config/simple-surveys.php`:
 - `respondent_key_type` — `'id'` (default), `'uuid'`, or `'ulid'`.
 - `guard` — Auth guard name (`null` uses your app's default guard).
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.
-- `tracking.impressions` — Enable/disable client-side impression ("Seen") tracking (`true` by default).
+- `tracking` — Toggle impression tracking (`tracking.impressions`) and auto-captured cookies (`tracking.cookies`).
+- `webhooks` — Enable/configure server-to-server lifecycle webhooks (`enabled`, `url`, `events`, `secret`, `signature_header`, `headers`, `queued`, `queue`, `timeout`, `tries`, `backoff`).
 - `admin` — Enable/disable admin dashboard routes, prefix, middleware, Gate ability name, and `appearance_editor` toggle.
 
 ## Testing & Quality

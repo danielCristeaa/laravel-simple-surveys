@@ -62,16 +62,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Funnel Tracking
+    | Funnel Tracking & Context
     |--------------------------------------------------------------------------
     |
     | Controls optional lightweight funnel telemetry sent by the customer
-    | widget. Set "impressions" to false to disable tracking unique users
-    | who have seen a survey banner.
+    | widget and cookies automatically captured as tracking context across
+    | survey events, responses, CSV exports, and webhooks.
+    |
+    | "cookies" accepts either a list of cookie names (['click_id']) or an
+    | associative map of ['tracking_key' => 'cookie_name'].
     |
     */
     'tracking' => [
         'impressions' => true,
+        'cookies' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lifecycle Webhooks
+    |--------------------------------------------------------------------------
+    |
+    | Optionally forward survey lifecycle events (seen, opened, dismissed,
+    | submitted) to external HTTP endpoints such as a Data collector,
+    | Slack/Zapier/n8n workflow, or analytics pipeline.
+    |
+    | "events" accepts a list of event names to send to "url" (e.g. ['submitted'])
+    | or an associative map of ['event_name' => 'https://endpoint.example/hook'].
+    |
+    */
+    'webhooks' => [
+        'enabled' => false,
+        'url' => null,
+        'events' => ['seen', 'opened', 'dismissed', 'submitted'],
+        'secret' => null,
+        'signature_header' => 'X-Simple-Surveys-Signature',
+        'headers' => [],
+        'queued' => true,
+        'queue' => null,
+        'timeout' => 5,
+        'tries' => 3,
+        'backoff' => [10, 60, 300],
     ],
 
     /*

@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys;
 
 use DanielCristea\SimpleSurveys\Console\Commands\SyncSurveysCommand;
+use DanielCristea\SimpleSurveys\Events\SurveyDismissed;
+use DanielCristea\SimpleSurveys\Events\SurveyOpened;
+use DanielCristea\SimpleSurveys\Events\SurveySeen;
+use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
@@ -12,8 +16,12 @@ use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySerializer;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
+use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
+use DanielCristea\SimpleSurveys\Services\SurveyWebhookDispatcher;
+use DanielCristea\SimpleSurveys\Services\SurveyWebhookPayloadBuilder;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -30,6 +38,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
                 'create_simple_surveys_tables',
                 'add_appearance_to_simple_surveys_table',
                 'create_simple_survey_impressions_table',
+                'add_tracking_metadata_to_simple_survey_dismissals_table',
             ])
             ->hasCommand(SyncSurveysCommand::class);
     }
@@ -43,6 +52,9 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SurveyResultsAggregator::class);
         $this->app->singleton(SurveySerializer::class);
+        $this->app->singleton(SurveyTrackingContextResolver::class);
+        $this->app->singleton(SurveyWebhookPayloadBuilder::class);
+        $this->app->singleton(SurveyWebhookDispatcher::class);
         $this->app->singleton(SimpleSurveys::class);
     }
 
@@ -58,6 +70,19 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
 
         $this->registerCustomerRoutes();
         $this->registerAdminRoutes();
+        $this->registerWebhookListeners();
+    }
+
+    private function registerWebhookListeners(): void
+    {
+        Event::listen([
+            SurveySeen::class,
+            SurveyOpened::class,
+            SurveyDismissed::class,
+            SurveySubmitted::class,
+        ], function (SurveySeen|SurveyOpened|SurveyDismissed|SurveySubmitted $event): void {
+            $this->app->make(SurveyWebhookDispatcher::class)->handle($event);
+        });
     }
 
     private function registerCustomerRoutes(): void

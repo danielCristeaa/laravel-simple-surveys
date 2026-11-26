@@ -34,6 +34,41 @@ final class SurveyExportController
             }
 
             $questions = $record->questions;
+            $hasDuration = false;
+            /** @var array<string, true> $trackingKeySet */
+            $trackingKeySet = [];
+
+            SurveyResponse::query()
+                ->forSurvey($record)
+                ->select(['id', 'metadata'])
+                ->orderBy('id')
+                ->chunkById(200, function (Collection $responses) use (&$hasDuration, &$trackingKeySet): void {
+                    /** @var SurveyResponse $response */
+                    foreach ($responses as $response) {
+                        $metadata = $response->metadata;
+
+                        if (! is_array($metadata)) {
+                            continue;
+                        }
+
+                        if (isset($metadata['duration_ms']) && is_numeric($metadata['duration_ms'])) {
+                            $hasDuration = true;
+                        }
+
+                        $tracking = $metadata['tracking'] ?? null;
+
+                        if (is_array($tracking)) {
+                            foreach (array_keys($tracking) as $trackingKey) {
+                                if (is_string($trackingKey) && $trackingKey !== '') {
+                                    $trackingKeySet[$trackingKey] = true;
+                                }
+                            }
+                        }
+                    }
+                });
+
+            $trackingKeys = array_keys($trackingKeySet);
+            sort($trackingKeys);
 
             $headers = [
                 'Response ID',
@@ -47,13 +82,21 @@ final class SurveyExportController
                 $headers[] = $question->label;
             }
 
+            if ($hasDuration) {
+                $headers[] = 'Duration (ms)';
+            }
+
+            foreach ($trackingKeys as $trackingKey) {
+                $headers[] = $trackingKey;
+            }
+
             fputcsv($handle, $headers);
 
             SurveyResponse::query()
                 ->forSurvey($record)
                 ->with(['answers.question'])
                 ->orderBy('id')
-                ->chunkById(200, function (Collection $responses) use ($handle, $questions): void {
+                ->chunkById(200, function (Collection $responses) use ($handle, $questions, $hasDuration, $trackingKeys): void {
                     /** @var SurveyResponse $response */
                     foreach ($responses as $response) {
                         /** @var array<int, SurveyAnswer> $answersByQuestionId */
@@ -62,8 +105,10 @@ final class SurveyExportController
                             $answersByQuestionId[$answer->question_id] = $answer;
                         }
 
-                        $url = is_array($response->metadata) && is_string($response->metadata['url'] ?? null)
-                            ? $response->metadata['url']
+                        $metadata = is_array($response->metadata) ? $response->metadata : [];
+
+                        $url = is_string($metadata['url'] ?? null)
+                            ? $metadata['url']
                             : '';
 
                         $row = [
@@ -77,6 +122,17 @@ final class SurveyExportController
                         foreach ($questions as $question) {
                             $answer = $answersByQuestionId[$question->getKey()] ?? null;
                             $row[] = $this->formatAnswerForCsv($answer?->typedValue());
+                        }
+
+                        if ($hasDuration) {
+                            $duration = $metadata['duration_ms'] ?? null;
+                            $row[] = is_numeric($duration) ? (string) (int) $duration : '';
+                        }
+
+                        $tracking = is_array($metadata['tracking'] ?? null) ? $metadata['tracking'] : [];
+
+                        foreach ($trackingKeys as $trackingKey) {
+                            $row[] = $this->formatAnswerForCsv($tracking[$trackingKey] ?? null);
                         }
 
                         fputcsv($handle, $row);
