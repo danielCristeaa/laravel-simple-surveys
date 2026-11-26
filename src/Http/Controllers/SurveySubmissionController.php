@@ -17,6 +17,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +33,7 @@ final class SurveySubmissionController
         private readonly SurveyValidator $validator,
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyTrackingContextResolver $trackingContext,
+        private readonly SurveyTranslator $translator,
     ) {}
 
     public function __invoke(Request $request, string $surveyKey): JsonResponse|RedirectResponse
@@ -40,13 +42,13 @@ final class SurveySubmissionController
         $user = $request->user(is_string($guard) ? $guard : null);
 
         if (! $user instanceof Model) {
-            abort(401, 'Authentication required.');
+            abort(401, $this->translator->ui('errors.unauthenticated'));
         }
 
         $survey = $this->registry->find($surveyKey);
 
         if ($survey === null) {
-            abort(404, 'Survey not found.');
+            abort(404, $this->translator->ui('errors.not_found'));
         }
 
         $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
@@ -56,7 +58,7 @@ final class SurveySubmissionController
             : $survey->isActive();
 
         if (! $isActive) {
-            abort(403, 'Survey is not active.');
+            abort(403, $this->translator->ui('errors.not_active'));
         }
 
         $existingDismissal = null;
@@ -68,7 +70,7 @@ final class SurveySubmissionController
                 ->exists();
 
             if ($alreadyCompleted) {
-                abort(409, 'Survey has already been submitted.');
+                abort(409, $this->translator->ui('errors.already_submitted'));
             }
 
             $existingDismissal = SurveyDismissal::query()
@@ -77,12 +79,12 @@ final class SurveySubmissionController
                 ->first();
 
             if ($existingDismissal !== null && ! $survey->isDismissalExpired($existingDismissal->dismissed_at)) {
-                abort(409, 'Survey has already been dismissed.');
+                abort(409, $this->translator->ui('errors.already_dismissed'));
             }
         }
 
         if (! $this->eligibility->isEligible($survey, $user)) {
-            abort(403, 'You are not eligible for this survey.');
+            abort(403, $this->translator->ui('errors.not_eligible'));
         }
 
         $answers = $this->validator->validate($survey, $request->all());
@@ -97,9 +99,13 @@ final class SurveySubmissionController
                 ?->first_opened_at;
         }
 
+        $rawLocale = app()->getLocale();
+        $locale = trim($rawLocale) !== '' ? trim($rawLocale) : null;
+
         $context = array_filter([
             'url' => $this->trackingContext->resolveUrl($request),
             'duration_ms' => $this->trackingContext->resolveDurationMs($request, $fallbackOpenedAt),
+            'locale' => $locale,
         ], static fn (mixed $value): bool => $value !== null);
 
         $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
@@ -149,14 +155,16 @@ final class SurveySubmissionController
 
         SurveySubmitted::dispatch($survey, $response, $user, $context, $tracking);
 
+        $thankYouMessage = $this->translator->thankYouMessage($survey);
+
         if ($request->expectsJson()) {
             return new JsonResponse([
-                'message' => $survey->getThankYouMessage(),
+                'message' => $thankYouMessage,
                 'survey_key' => $survey->key(),
             ], 201);
         }
 
-        return back()->with('simple_surveys_status', $survey->getThankYouMessage());
+        return back()->with('simple_surveys_status', $thankYouMessage);
     }
 
     /**

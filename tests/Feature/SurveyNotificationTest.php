@@ -87,7 +87,7 @@ it('dispatches global queued notifications on mail and slack and serializes clea
                     'mail' => 'product@example.com',
                     'slack' => 'https://hooks.slack.com/services/T000/B000/GLOBAL',
                 ]
-                && $notification->context === ['url' => '/dashboard'];
+                && $notification->context === ['url' => '/dashboard', 'locale' => 'en'];
         },
     );
 });

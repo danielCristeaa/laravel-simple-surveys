@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys;
 
+use DanielCristea\SimpleSurveys\Console\Commands\ExportSurveyTranslationsCommand;
 use DanielCristea\SimpleSurveys\Console\Commands\SyncSurveysCommand;
 use DanielCristea\SimpleSurveys\Events\SurveyDismissed;
 use DanielCristea\SimpleSurveys\Events\SurveyOpened;
@@ -18,6 +19,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySerializer;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
 use DanielCristea\SimpleSurveys\Services\SurveyWebhookDispatcher;
 use DanielCristea\SimpleSurveys\Services\SurveyWebhookPayloadBuilder;
@@ -34,6 +36,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $package
             ->name('simple-surveys')
             ->hasConfigFile('simple-surveys')
+            ->hasTranslations()
             ->hasViews('simple-surveys')
             ->hasMigrations([
                 'create_simple_surveys_tables',
@@ -41,7 +44,10 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
                 'create_simple_survey_impressions_table',
                 'add_tracking_metadata_to_simple_survey_dismissals_table',
             ])
-            ->hasCommand(SyncSurveysCommand::class);
+            ->hasCommands([
+                SyncSurveysCommand::class,
+                ExportSurveyTranslationsCommand::class,
+            ]);
     }
 
     public function packageRegistered(): void
@@ -49,6 +55,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyRegistry::class);
         $this->app->singleton(SurveyEligibilityResolver::class);
         $this->app->singleton(SurveyAppearanceResolver::class);
+        $this->app->singleton(SurveyTranslator::class);
         $this->app->singleton(SurveyValidator::class);
         $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SurveyResultsAggregator::class);

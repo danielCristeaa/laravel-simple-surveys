@@ -66,7 +66,7 @@ it('renders the bottom-right widget with all question types for an eligible user
         ->toContain('Product Feedback')
         ->toContain('Help us build better features.')
         ->toContain('Send Feedback')
-        ->toContain("Don't show again")
+        ->toContain(e("Don't show again"))
         ->toContain('data-lss-dismiss')
         ->toContain(route('simple-surveys.responses.store', 'product-survey'))
         ->toContain(route('simple-surveys.dismiss', 'product-survey'))
@@ -97,7 +97,7 @@ it('supports specific survey attribute, bottom-left position, and non-dismissibl
         ->toContain('Specific Survey')
         ->not->toContain('High Priority')
         ->not->toContain('aria-label="Dismiss survey"')
-        ->not->toContain("Don't show again");
+        ->not->toContain(e("Don't show again"));
 
     SimpleSurveys::sync();
     $record = SurveyRecord::query()->byKey('specific-one')->firstOrFail();
@@ -124,7 +124,7 @@ it('renders Remind me later label when reprompt cooldown is configured', functio
 
     expect($html)
         ->toContain('Remind me later')
-        ->not->toContain("Don't show again");
+        ->not->toContain(e("Don't show again"));
 });
 
 it('only renders the widget on routes and paths matching survey page targeting', function (): void {

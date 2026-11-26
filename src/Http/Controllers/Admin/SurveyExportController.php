@@ -35,6 +35,7 @@ final class SurveyExportController
 
             $questions = $record->questions;
             $hasDuration = false;
+            $hasLocale = false;
             /** @var array<string, true> $trackingKeySet */
             $trackingKeySet = [];
 
@@ -42,7 +43,7 @@ final class SurveyExportController
                 ->forSurvey($record)
                 ->select(['id', 'metadata'])
                 ->orderBy('id')
-                ->chunkById(200, function (Collection $responses) use (&$hasDuration, &$trackingKeySet): void {
+                ->chunkById(200, function (Collection $responses) use (&$hasDuration, &$hasLocale, &$trackingKeySet): void {
                     /** @var SurveyResponse $response */
                     foreach ($responses as $response) {
                         $metadata = $response->metadata;
@@ -53,6 +54,10 @@ final class SurveyExportController
 
                         if (isset($metadata['duration_ms']) && is_numeric($metadata['duration_ms'])) {
                             $hasDuration = true;
+                        }
+
+                        if (isset($metadata['locale']) && is_string($metadata['locale']) && trim($metadata['locale']) !== '') {
+                            $hasLocale = true;
                         }
 
                         $tracking = $metadata['tracking'] ?? null;
@@ -86,6 +91,10 @@ final class SurveyExportController
                 $headers[] = 'Duration (ms)';
             }
 
+            if ($hasLocale) {
+                $headers[] = 'Locale';
+            }
+
             foreach ($trackingKeys as $trackingKey) {
                 $headers[] = $trackingKey;
             }
@@ -96,7 +105,7 @@ final class SurveyExportController
                 ->forSurvey($record)
                 ->with(['answers.question'])
                 ->orderBy('id')
-                ->chunkById(200, function (Collection $responses) use ($handle, $questions, $hasDuration, $trackingKeys): void {
+                ->chunkById(200, function (Collection $responses) use ($handle, $questions, $hasDuration, $hasLocale, $trackingKeys): void {
                     /** @var SurveyResponse $response */
                     foreach ($responses as $response) {
                         /** @var array<int, SurveyAnswer> $answersByQuestionId */
@@ -127,6 +136,11 @@ final class SurveyExportController
                         if ($hasDuration) {
                             $duration = $metadata['duration_ms'] ?? null;
                             $row[] = is_numeric($duration) ? (string) (int) $duration : '';
+                        }
+
+                        if ($hasLocale) {
+                            $locale = $metadata['locale'] ?? null;
+                            $row[] = is_string($locale) ? trim($locale) : '';
                         }
 
                         $tracking = is_array($metadata['tracking'] ?? null) ? $metadata['tracking'] : [];

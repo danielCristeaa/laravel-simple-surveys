@@ -84,6 +84,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Localization & Survey Translations
+    |--------------------------------------------------------------------------
+    |
+    | Convention-based Laravel translation file used to resolve translated
+    | survey copy (titles, banners, descriptions, submit labels, thank-you
+    | messages, question labels, help text, placeholders, and option labels)
+    | from lang/{locale}/{file}.php.
+    |
+    | "locales" lists target locale codes scaffolded by the
+    | `php artisan simple-surveys:translations` command (in addition to the
+    | application's fallback locale used as the source file).
+    |
+    */
+    'translations' => [
+        'file' => 'simple-surveys',
+        'locales' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Funnel Tracking & Context
     |--------------------------------------------------------------------------
     |

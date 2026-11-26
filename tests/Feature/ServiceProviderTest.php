@@ -20,6 +20,8 @@ it('loads default package configuration', function (): void {
         ->and(config('simple-surveys.respondent_key_type'))->toBe('id')
         ->and(config('simple-surveys.guard'))->toBeNull()
         ->and(config('simple-surveys.routes.enabled'))->toBeTrue()
+        ->and(config('simple-surveys.translations.file'))->toBe('simple-surveys')
+        ->and(config('simple-surveys.translations.locales'))->toBe([])
         ->and(config('simple-surveys.tracking.impressions'))->toBeTrue()
         ->and(config('simple-surveys.tracking.cookies'))->toBe([])
         ->and(config('simple-surveys.webhooks.enabled'))->toBeFalse()

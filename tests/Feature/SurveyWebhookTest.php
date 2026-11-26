@@ -94,7 +94,7 @@ it('dispatches queued global webhooks across all lifecycle events with per-event
     Queue::assertPushedOn('webhooks', DispatchSurveyWebhookJob::class, static fn (DispatchSurveyWebhookJob $job): bool => $job->eventName === 'survey.submitted'
         && $job->url === 'https://data.example.test/hooks/submissions'
         && $job->payload['data']['answers'] === ['score' => 5]
-        && $job->payload['context'] === ['url' => '/home', 'duration_ms' => 2100]
+        && $job->payload['context'] === ['url' => '/home', 'duration_ms' => 2100, 'locale' => 'en']
         && $job->tries === 4
         && $job->backoff === [5, 30]);
 
@@ -158,7 +158,7 @@ it('delivers signed per-survey webhooks synchronously when queued is false', fun
             && $decoded['event'] === 'survey.submitted'
             && $decoded['survey']['key'] === 'nps-hook'
             && $decoded['tracking'] === ['click_id' => 'clk_777']
-            && $decoded['context'] === ['url' => '/checkout', 'duration_ms' => 1500]
+            && $decoded['context'] === ['url' => '/checkout', 'duration_ms' => 1500, 'locale' => 'en']
             && $decoded['data']['answers'] === ['nps' => 9];
     });
 });

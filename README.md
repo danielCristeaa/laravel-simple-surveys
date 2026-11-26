@@ -9,6 +9,7 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 - **Flexible appearance customization:** Style all surveys globally or target individual surveys in your own CSS (`php artisan vendor:publish --tag="simple-surveys-styles"`), or fine-tune any survey visually with a live preview in the Admin Dashboard **Appearance** tab.
 - **Eloquent audience targeting:** Target authenticated users with real Eloquent queries (`where`, `whereHas`, scopes) or direct user predicates.
 - **8 built-in input types & conditional follow-ups:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`, with live client-side and server-validated conditional visibility (`->when(...)`).
+- **Multi-language & localization ready:** Publishable widget UI translations (`simple-surveys-translations`), convention-based `lang/{locale}/simple-surveys.php` survey translations with a scaffolding Artisan command (`simple-surveys:translations`), and automatic respondent `locale` recording.
 - **Normalized 7-table schema:** Stores surveys, questions, responses, typed answers, dismissals, opens, and impressions cleanly with native SQL analytics.
 - **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect funnel metrics (seen, opened, answered, abandoned, dismissed, response rate, and completion rate) and visual breakdowns, end/re-open/reset surveys, and export CSVs.
 - **Octane-safe & strictly typed:** PHP 8.2+, Laravel 11.x, 12.x & 13.x, PHPStan Level 8+.
@@ -191,7 +192,217 @@ In Inertia.js, Livewire (`wire:navigate` / `@persist`), or other SPAs where your
 
 This keeps a lightweight mount container in the DOM that automatically refreshes eligibility via `GET /simple-surveys/widget` on `inertia:navigate`, `livewire:navigated`, or when you dispatch `window.dispatchEvent(new CustomEvent('simple-surveys:refresh'))`.
 
-For custom React/Vue/Svelte frontends that want raw JSON instead of the built-in Blade widget, query `GET /simple-surveys/eligible` (returns `200 { "survey": ... }` including resolved `appearance` presets & Dashboard overrides, or `{ "survey": null }`).
+For custom React/Vue/Svelte frontends that want raw JSON instead of the built-in Blade widget, see [Headless / API-Only Laravel + React/Vue Setup](#headless--api-only-laravel--reactvue-setup) below.
+
+#### Headless / API-Only Laravel + React/Vue Setup
+
+If your Laravel backend serves a separate SPA (React, Vue, Next.js, Nuxt, etc.) over Sanctum, Passport, or another API guard, you can use the built-in JSON endpoints without rendering the Blade widget.
+
+##### 1. Configure Guard, Prefix & Middleware
+
+Publish and update `config/simple-surveys.php`:
+
+```php
+'guard' => 'sanctum', // Required for stateless Bearer tokens (e.g. 'sanctum', 'api', 'passport')
+
+'routes' => [
+    'enabled' => true,
+    'prefix' => 'api/simple-surveys',
+    'middleware' => ['api', 'auth:sanctum'],
+],
+```
+
+> **Important (Bearer Tokens):** `GET /{prefix}/eligible` intentionally omits `auth:*` middleware so unauthenticated visitors receive `200 {"survey": null}` instead of `401`. Because of this, you **must** set `'guard' => 'sanctum'` (or your API guard) when using stateless `Authorization: Bearer ...` tokens—leaving `'guard' => null` falls back to the `web` session guard and returns `{"survey": null}`.
+
+##### 2. Configure CORS & Page Targeting
+
+- **Cross-origin SPAs:** Add your route prefix (e.g. `'api/simple-surveys/*'`) to `paths` in Laravel's `config/cors.php`.
+- **Page targeting:** Because Laravel does not know client-side React Router / Vue Router route names, pass the current browser path as `?url=/dashboard` to `GET /eligible` and use `->onPaths(...)` / `->exceptPaths(...)` in your survey definitions instead of `->onRoutes(...)`.
+- **Admin Dashboard:** `/simple-surveys/admin` is a session-authenticated Blade UI. Keep a lightweight web login for admins, or set `'admin' => ['enabled' => false]` if you do not expose web routes.
+
+##### 3. Available Headless JSON Endpoints
+
+| Endpoint | Method | Purpose |
+| :--- | :--- | :--- |
+| `/{prefix}/eligible?url=/path` | `GET` | Returns `200 {"survey": {...}}` (with questions, `appearance`, and action `urls`) or `{"survey": null}` |
+| `/{prefix}/{key}/impression` | `POST` | Records unique `seen` impression (`200`) |
+| `/{prefix}/{key}/open` | `POST` | Records survey open (`200`; also powers server-side `duration_ms` fallback) |
+| `/{prefix}/{key}/responses` | `POST` | Validates and stores `{ answers, url, duration_ms }` (`201`, or `422` validation errors) |
+| `/{prefix}/{key}/dismiss` | `POST` | Dismisses survey with `{ source: 'banner' \| 'card', url }` (`200`) |
+
+##### 4. Minimal React Widget Example
+
+```jsx
+import { useEffect, useRef, useState } from 'react';
+
+export function SurveyWidget({ apiBase = 'https://api.example.com', token, pathname }) {
+  const [survey, setSurvey] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [answers, setAnswers] = useState({});
+  const [errors, setErrors] = useState({});
+  const [thanks, setThanks] = useState('');
+  const openedAt = useRef(null);
+
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    const url = `${apiBase}/api/simple-surveys/eligible?url=${encodeURIComponent(pathname)}`;
+
+    fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then(({ survey: next }) => {
+        setSurvey(next);
+        setOpen(false);
+        setAnswers({});
+        setErrors({});
+        setThanks('');
+        openedAt.current = null;
+
+        if (next && !sessionStorage.getItem(`lss_seen_${next.key}`)) {
+          sessionStorage.setItem(`lss_seen_${next.key}`, '1');
+          fetch(next.urls.impression, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ url: pathname }),
+          }).catch(() => sessionStorage.removeItem(`lss_seen_${next.key}`));
+        }
+      });
+  }, [apiBase, token, pathname]);
+
+  if (!survey) return null;
+
+  const handleOpen = () => {
+    setOpen(true);
+    if (!openedAt.current) {
+      openedAt.current = Date.now();
+      fetch(survey.urls.open, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ url: pathname }),
+      }).catch(() => {});
+    }
+  };
+
+  const handleDismiss = async (source) => {
+    await fetch(survey.urls.dismiss, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ source, url: pathname }),
+    });
+    setSurvey(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrors({});
+
+    const res = await fetch(survey.urls.submit, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        answers,
+        url: pathname,
+        duration_ms: openedAt.current ? Date.now() - openedAt.current : undefined,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 422) {
+      setErrors(data.errors || {});
+      return;
+    }
+    if (res.ok) {
+      setThanks(data.message || survey.thank_you_message);
+      setTimeout(() => setSurvey(null), 3000);
+    }
+  };
+
+  const setAnswer = (key, value) => setAnswers((prev) => ({ ...prev, [key]: value }));
+
+  if (!open) {
+    return (
+      <div className="survey-banner">
+        <span>{survey.banner_text}</span>
+        <button type="button" onClick={handleOpen}>Take Survey</button>
+        {survey.dismissible && (
+          <button type="button" onClick={() => handleDismiss('banner')} aria-label="Dismiss">&times;</button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="survey-card" role="dialog" aria-label={survey.title}>
+      <h3>{survey.title}</h3>
+      {thanks ? (
+        <p>{thanks}</p>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          {survey.questions.map((q) => (
+            <div key={q.key}>
+              <label>{q.label}{q.required ? ' *' : ''}</label>
+              {q.type === 'rating' && (
+                <div>
+                  {Array.from({ length: (q.max ?? 5) - (q.min ?? 1) + 1 }, (_, i) => (q.min ?? 1) + i).map((n) => (
+                    <button key={n} type="button" onClick={() => setAnswer(q.key, n)} aria-pressed={answers[q.key] === n}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {q.type === 'select' && (
+                <select value={answers[q.key] ?? ''} onChange={(e) => setAnswer(q.key, e.target.value)}>
+                  <option value="">{q.placeholder || 'Select an option...'}</option>
+                  {Object.entries(q.options).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              )}
+              {q.type === 'boolean' && (
+                <div>
+                  <button type="button" onClick={() => setAnswer(q.key, true)}>Yes</button>
+                  <button type="button" onClick={() => setAnswer(q.key, false)}>No</button>
+                </div>
+              )}
+              {(q.type === 'text' || q.type === 'number') && (
+                <input
+                  type={q.type}
+                  value={answers[q.key] ?? ''}
+                  placeholder={q.placeholder || ''}
+                  onChange={(e) => setAnswer(q.key, e.target.value)}
+                />
+              )}
+              {q.type === 'textarea' && (
+                <textarea
+                  value={answers[q.key] ?? ''}
+                  placeholder={q.placeholder || ''}
+                  onChange={(e) => setAnswer(q.key, e.target.value)}
+                />
+              )}
+              {errors[`answers.${q.key}`] && <p role="alert">{errors[`answers.${q.key}`][0]}</p>}
+            </div>
+          ))}
+          <div>
+            {survey.dismissible && (
+              <button type="button" onClick={() => handleDismiss('card')}>
+                {survey.reprompt_after_dismiss ? 'Remind me later' : "Don't show again"}
+              </button>
+            )}
+            <button type="submit">{survey.submit_label}</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+```
+
+> Using Sanctum cookie-based SPA auth instead of Bearer tokens? Omit the `Authorization` header, pass `credentials: 'include'` (and the `X-XSRF-TOKEN` header on `POST` requests), and configure `SANCTUM_STATEFUL_DOMAINS`.
 
 ## Appearance & Styling Customization
 
@@ -272,6 +483,70 @@ Surveys automatically sync to the database on the first submission, dismissal, o
 ```bash
 php artisan simple-surveys:sync
 ```
+
+## Localization & Translatable Surveys
+
+Single-language applications need zero translation configuration. For multi-language apps, Simple Surveys supports two clean layers resolved lazily at request time (`app()->getLocale()`):
+
+### 1. Built-In Widget UI Strings
+
+Publish the package's widget language file (`Take Survey`, `Yes`, `No`, `Remind me later`, `Don't show again`, default `Submit`, default thank-you message, and error labels) into `lang/vendor/simple-surveys/`:
+
+```bash
+php artisan vendor:publish --tag="simple-surveys-translations"
+```
+
+Create locale folders such as `lang/vendor/simple-surveys/fr/widget.php` to translate the built-in widget chrome.
+
+### 2. Translating Survey Copy (`lang/{locale}/simple-surveys.php`)
+
+Keep defining your surveys cleanly in PHP. To translate titles, banners, descriptions, submit labels, thank-you messages, question labels, help text, placeholders, and answer option labels, configure your target locales in `config/simple-surveys.php`:
+
+```php
+'translations' => [
+    'file' => 'simple-surveys',
+    'locales' => ['fr', 'de'],
+],
+```
+
+Then scaffold and sync your Laravel translation files from all registered surveys:
+
+```bash
+php artisan simple-surveys:translations
+```
+
+Optional flags:
+
+- `--locales=fr,de,es` — Override the target locales from config
+- `--source=en` — Override the source locale (defaults to `config('app.fallback_locale')`)
+- `--survey=onboarding-feedback` — Export/update a single survey key
+- `--empty` — Leave newly scaffolded target locale strings empty instead of pre-filling source strings
+- `--prune` — Remove survey/question entries that are no longer registered in code
+
+Re-running `simple-surveys:translations` updates your source locale file (`lang/en/simple-surveys.php`) and merges new keys into target locale files **without overwriting existing translations**. Because it uses standard Laravel `lang/{locale}/simple-surveys.php` files, it also works out of the box with Git-connected translation platforms like Crowdin, Lokalise, Phrase, and Weblate.
+
+```php
+// lang/fr/simple-surveys.php
+return [
+    'onboarding-feedback' => [
+        'title' => 'Sondage de bienvenue',
+        'banner' => 'Vous avez 30 secondes ?',
+        'questions' => [
+            'source' => [
+                'label' => 'Comment nous avez-vous connus ?',
+                'options' => [
+                    'google' => 'Moteur de recherche',
+                    'friend' => 'Un ami',
+                ],
+            ],
+        ],
+    ],
+];
+```
+
+- **Option keys stay canonical:** Only option *labels* are translated — stored answers, `->when(...)` conditions, and Admin Dashboard analytics continue to aggregate cleanly across all languages.
+- **Canonical DB sync:** `simple_surveys` and `simple_survey_questions` always store the canonical PHP copy rather than the submitting user's locale.
+- **Respondent locale recorded automatically:** Every submitted response records the active `locale` in `SurveyResponse::$metadata['locale']`, the `SurveySubmitted` event `$context`, webhook payloads, the Admin Dashboard responses table, and CSV exports (`Locale` column).
 
 ## Audience Targeting
 
@@ -443,6 +718,7 @@ Key options in `config/simple-surveys.php`:
 - `guard` — Auth guard name (`null` uses your app's default guard).
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.
 - `widget` — Default customer widget settings (`widget.icon` — built-in preset, `'none'`, or relative `public/` `.png`/`.svg` path).
+- `translations` — Convention translation filename (`translations.file`, default `'simple-surveys'`) and default target locale codes (`translations.locales`) for `php artisan simple-surveys:translations`.
 - `tracking` — Toggle impression tracking (`tracking.impressions`) and auto-captured cookies (`tracking.cookies`).
 - `webhooks` — Enable/configure server-to-server lifecycle webhooks (`enabled`, `url`, `events`, `secret`, `signature_header`, `headers`, `queued`, `queue`, `timeout`, `tries`, `backoff`).
 - `notifications` — Enable/configure optional submission notifications (`enabled`, `notification`, `channels`, `routes`, `queued`, `queue`, `slack_timeout`).

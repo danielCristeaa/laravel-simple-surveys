@@ -29,9 +29,9 @@ final class Survey
 
     private ?string $description = null;
 
-    private string $submitLabel = 'Submit';
+    private ?string $submitLabel = null;
 
-    private string $thankYouMessage = 'Thank you for your feedback!';
+    private ?string $thankYouMessage = null;
 
     private ?CarbonImmutable $startsAt = null;
 
@@ -581,6 +581,11 @@ final class Survey
         return $this->bannerText ?? $this->title;
     }
 
+    public function hasCustomBannerText(): bool
+    {
+        return $this->bannerText !== null;
+    }
+
     public function getDescription(): ?string
     {
         return $this->description;
@@ -588,12 +593,22 @@ final class Survey
 
     public function getSubmitLabel(): string
     {
-        return $this->submitLabel;
+        return $this->submitLabel ?? 'Submit';
+    }
+
+    public function hasCustomSubmitLabel(): bool
+    {
+        return $this->submitLabel !== null;
     }
 
     public function getThankYouMessage(): string
     {
-        return $this->thankYouMessage;
+        return $this->thankYouMessage ?? 'Thank you for your feedback!';
+    }
+
+    public function hasCustomThankYouMessage(): bool
+    {
+        return $this->thankYouMessage !== null;
     }
 
     public function getStartsAt(): ?CarbonImmutable

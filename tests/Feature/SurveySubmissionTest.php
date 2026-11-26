@@ -54,7 +54,7 @@ it('auto-syncs, persists relational answers, and dispatches event on submission'
         ->first();
 
     expect($stored)->not->toBeNull()
-        ->and($stored?->metadata)->toBe(['url' => '/dashboard'])
+        ->and($stored?->metadata)->toBe(['url' => '/dashboard', 'locale' => 'en'])
         ->and($stored?->created_at)->not->toBeNull()
         ->and(SurveyAnswer::query()->count())->toBe(4)
         ->and($stored?->answerFor('score'))->toBe(5)

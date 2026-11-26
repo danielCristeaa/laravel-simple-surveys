@@ -12,6 +12,10 @@ use DanielCristea\SimpleSurveys\WidgetIcon;
 
 final class SurveySerializer
 {
+    public function __construct(
+        private readonly SurveyTranslator $translator,
+    ) {}
+
     /**
      * @return array{
      *     key: string,
@@ -45,23 +49,23 @@ final class SurveySerializer
      *     }>
      * }
      */
-    public function toArray(Survey $survey, ?SurveyAppearance $appearance = null): array
+    public function toArray(Survey $survey, ?SurveyAppearance $appearance = null, ?string $locale = null): array
     {
         $questions = [];
 
         foreach ($survey->getQuestions() as $question) {
-            $questions[] = $this->serializeQuestion($question);
+            $questions[] = $this->serializeQuestion($survey, $question, $locale);
         }
 
         $fallbackIcon = $survey->getIcon() ?? WidgetIcon::fromConfig();
 
         return [
             'key' => $survey->key(),
-            'title' => $survey->getTitle(),
-            'banner_text' => $survey->getBannerText(),
-            'description' => $survey->getDescription(),
-            'submit_label' => $survey->getSubmitLabel(),
-            'thank_you_message' => $survey->getThankYouMessage(),
+            'title' => $this->translator->title($survey, $locale),
+            'banner_text' => $this->translator->bannerText($survey, $locale),
+            'description' => $this->translator->description($survey, $locale),
+            'submit_label' => $this->translator->submitLabel($survey, $locale),
+            'thank_you_message' => $this->translator->thankYouMessage($survey, $locale),
             'dismissible' => $survey->isDismissible(),
             'reprompt_after_dismiss' => $survey->getRepromptAfter() !== null,
             'appearance' => ($appearance ?? new SurveyAppearance)->toArray(defaultIcon: $fallbackIcon),
@@ -91,16 +95,16 @@ final class SurveySerializer
      *     conditions: array<int, array{question: string, operator: string, value: string|int|float|bool|array<int, string|int|float|bool>}>
      * }
      */
-    private function serializeQuestion(Question $question): array
+    private function serializeQuestion(Survey $survey, Question $question, ?string $locale = null): array
     {
         return [
             'key' => $question->key(),
             'type' => $question->type()->value,
-            'label' => $question->label(),
-            'help_text' => $question->getHelpText(),
-            'placeholder' => $question->getPlaceholder(),
+            'label' => $this->translator->questionLabel($survey, $question, $locale),
+            'help_text' => $this->translator->questionHelpText($survey, $question, $locale),
+            'placeholder' => $this->translator->questionPlaceholder($survey, $question, $locale),
             'required' => $question->isRequired(),
-            'options' => $question->getOptions(),
+            'options' => $this->translator->questionOptions($survey, $question, $locale),
             'min' => $question->getMin(),
             'max' => $question->getMax(),
             'step' => $question->getStep(),

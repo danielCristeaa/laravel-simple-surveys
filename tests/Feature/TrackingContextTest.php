@@ -97,6 +97,7 @@ it('resolves configured cookies and custom tracking context across all lifecycle
     Event::assertDispatched(SurveySubmitted::class, static fn (SurveySubmitted $event): bool => $event->context === [
         'url' => '/dashboard',
         'duration_ms' => 4250,
+        'locale' => 'en',
     ] && $event->tracking['click_id'] === 'clk_abc');
 
     $response = SurveyResponse::query()->forSurvey('lifecycle-tracking')->forRespondent($alice)->firstOrFail();
@@ -104,6 +105,7 @@ it('resolves configured cookies and custom tracking context across all lifecycle
     expect($response->metadata)->toBe([
         'url' => '/dashboard',
         'duration_ms' => 4250,
+        'locale' => 'en',
         'tracking' => [
             'distinct_id' => 'ph_user_123',
             'click_id' => 'clk_abc',
@@ -176,7 +178,7 @@ it('sanitizes invalid dismissal sources and out-of-range duration values', funct
         ->assertCreated();
 
     $response = SurveyResponse::query()->forSurvey('sanitize-check')->forRespondent($bob)->firstOrFail();
-    expect($response->metadata)->toBeNull();
+    expect($response->metadata)->toBe(['locale' => 'en']);
 });
 
 it('appends duration and tracking context columns dynamically in csv exports', function (): void {
@@ -212,8 +214,8 @@ it('appends duration and tracking context columns dynamically in csv exports', f
         ->streamedContent();
 
     expect($csv)
-        ->toContain('"Response ID","Respondent Type","Respondent ID","Submitted At","Page URL",Score,"Duration (ms)",distinct_id,plan')
-        ->toContain('/app/home,4,3100,ph_999,pro');
+        ->toContain('"Response ID","Respondent Type","Respondent ID","Submitted At","Page URL",Score,"Duration (ms)",Locale,distinct_id,plan')
+        ->toContain('/app/home,4,3100,en,ph_999,pro');
 });
 
 it('renders browser CustomEvent dispatchers and dismissal source hooks in the widget', function (): void {
@@ -292,6 +294,7 @@ it('derives duration_ms server-side from first_opened_at and preserves point-in-
     $bobResponse = SurveyResponse::query()->forSurvey('server-duration')->forRespondent($bob)->firstOrFail();
 
     expect($bobResponse->metadata)->toBe([
+        'locale' => 'en',
         'tracking' => [
             'plan' => 'enterprise',
         ],
@@ -303,7 +306,7 @@ it('derives duration_ms server-side from first_opened_at and preserves point-in-
         ->streamedContent();
 
     expect($csv)
-        ->toContain('"Duration (ms)",plan')
-        ->toContain(',pro')
-        ->toContain(',enterprise');
+        ->toContain('"Duration (ms)",Locale,plan')
+        ->toContain(',en,pro')
+        ->toContain(',en,enterprise');
 });

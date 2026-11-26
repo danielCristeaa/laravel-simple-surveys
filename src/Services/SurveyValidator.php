@@ -13,6 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 final class SurveyValidator
 {
+    public function __construct(
+        private readonly SurveyTranslator $translator,
+    ) {}
+
     /**
      * Validate request payload against the survey's questions and return normalized answers.
      *
@@ -116,7 +120,7 @@ final class SurveyValidator
         $attributes = [];
 
         foreach ($survey->getQuestions() as $question) {
-            $attributes['answers.'.$question->key()] = $question->label();
+            $attributes['answers.'.$question->key()] = $this->translator->questionLabel($survey, $question);
         }
 
         return $attributes;

@@ -12,6 +12,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,7 @@ final class SurveyDismissalController
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyTrackingContextResolver $trackingContext,
+        private readonly SurveyTranslator $translator,
     ) {}
 
     public function __invoke(Request $request, string $surveyKey): JsonResponse|RedirectResponse
@@ -33,17 +35,17 @@ final class SurveyDismissalController
         $user = $request->user(is_string($guard) ? $guard : null);
 
         if (! $user instanceof Model) {
-            abort(401, 'Authentication required.');
+            abort(401, $this->translator->ui('errors.unauthenticated'));
         }
 
         $survey = $this->registry->find($surveyKey);
 
         if ($survey === null) {
-            abort(404, 'Survey not found.');
+            abort(404, $this->translator->ui('errors.not_found'));
         }
 
         if (! $survey->isDismissible()) {
-            abort(403, 'This survey cannot be dismissed.');
+            abort(403, $this->translator->ui('errors.not_dismissible'));
         }
 
         $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
@@ -67,12 +69,12 @@ final class SurveyDismissalController
                 ->exists();
 
             if ($alreadyCompleted) {
-                abort(409, 'Survey has already been completed.');
+                abort(409, $this->translator->ui('errors.already_completed'));
             }
         }
 
         if (! $this->eligibility->isEligible($survey, $user)) {
-            abort(403, 'You are not eligible for this survey.');
+            abort(403, $this->translator->ui('errors.not_eligible'));
         }
 
         $source = $this->trackingContext->resolveDismissalSource($request);

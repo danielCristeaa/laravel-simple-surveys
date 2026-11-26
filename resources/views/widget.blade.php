@@ -1,13 +1,20 @@
 @php
     use DanielCristea\SimpleSurveys\Enums\QuestionType;
+    use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
     use DanielCristea\SimpleSurveys\Services\WidgetStyles;
     use DanielCristea\SimpleSurveys\WidgetIcon;
     /** @var \DanielCristea\SimpleSurveys\Survey $activeSurvey */
+    $translator = app(SurveyTranslator::class);
     $widgetId = 'lss-widget-' . \Illuminate\Support\Str::slug($activeSurvey->key());
     $resolvedPosition = $position ?? 'bottom-right';
     $resolvedTheme = $theme ?? 'light';
     $resolvedBannerIcon = $bannerIcon ?? WidgetIcon::fromConfig();
     $resolvedInlineStyle = $inlineStyle ?? '';
+    $surveyTitle = $translator->title($activeSurvey);
+    $surveyBannerText = $translator->bannerText($activeSurvey);
+    $surveyDescription = $translator->description($activeSurvey);
+    $surveySubmitLabel = $translator->submitLabel($activeSurvey);
+    $surveyThankYouMessage = $translator->thankYouMessage($activeSurvey);
 @endphp
 
 <div
@@ -23,7 +30,7 @@
     data-lss-dismiss-url="{{ $dismissUrl }}"
     data-lss-open-url="{{ $openUrl }}"
     @if (! empty($impressionUrl)) data-lss-impression-url="{{ $impressionUrl }}" @endif
-    data-lss-thank-you="{{ $activeSurvey->getThankYouMessage() }}"
+    data-lss-thank-you="{{ $surveyThankYouMessage }}"
 >
     <style>{!! WidgetStyles::css() !!}</style>
 
@@ -40,13 +47,13 @@
                 <img class="lss-banner-icon-img" src="{{ $resolvedBannerIcon->assetUrl() }}" alt="" decoding="async">
             </div>
         @endif
-        <p class="lss-banner-text">{{ $activeSurvey->getBannerText() }}</p>
+        <p class="lss-banner-text">{{ $surveyBannerText }}</p>
         <div class="lss-banner-actions">
             <button type="button" class="lss-btn-primary" data-lss-open aria-expanded="false">
-                Take Survey
+                {{ $translator->ui('take_survey') }}
             </button>
             @if ($activeSurvey->isDismissible())
-                <button type="button" class="lss-btn-icon" data-lss-dismiss data-lss-dismiss-source="banner" aria-label="Dismiss survey" title="Dismiss">
+                <button type="button" class="lss-btn-icon" data-lss-dismiss data-lss-dismiss-source="banner" aria-label="{{ $translator->ui('dismiss_aria_label') }}" title="{{ $translator->ui('dismiss_title') }}">
                     &times;
                 </button>
             @endif
@@ -54,15 +61,15 @@
     </div>
 
     {{-- Expanded Survey Card --}}
-    <div class="lss-card lss-hidden" data-lss-card role="dialog" aria-label="{{ $activeSurvey->getTitle() }}">
+    <div class="lss-card lss-hidden" data-lss-card role="dialog" aria-label="{{ $surveyTitle }}">
         <div class="lss-card-header">
             <div>
-                <h3 class="lss-card-title">{{ $activeSurvey->getTitle() }}</h3>
-                @if ($activeSurvey->getDescription())
-                    <p class="lss-card-desc">{{ $activeSurvey->getDescription() }}</p>
+                <h3 class="lss-card-title">{{ $surveyTitle }}</h3>
+                @if ($surveyDescription)
+                    <p class="lss-card-desc">{{ $surveyDescription }}</p>
                 @endif
             </div>
-            <button type="button" class="lss-btn-icon" data-lss-close aria-label="Close survey" title="Minimize">
+            <button type="button" class="lss-btn-icon" data-lss-close aria-label="{{ $translator->ui('close_aria_label') }}" title="{{ $translator->ui('minimize_title') }}">
                 &times;
             </button>
         </div>
@@ -77,6 +84,10 @@
                     @php
                         $inputId = $widgetId . '-' . $question->key();
                         $fieldName = 'answers[' . $question->key() . ']';
+                        $questionLabel = $translator->questionLabel($activeSurvey, $question);
+                        $questionHelpText = $translator->questionHelpText($activeSurvey, $question);
+                        $questionPlaceholder = $translator->questionPlaceholder($activeSurvey, $question);
+                        $questionOptions = $translator->questionOptions($activeSurvey, $question);
                         $questionConditions = array_map(
                             static fn (\DanielCristea\SimpleSurveys\QuestionCondition $condition): array => $condition->toArray(),
                             $question->getConditions(),
@@ -93,14 +104,14 @@
                         @endif
                     >
                         <label class="lss-label" @if (in_array($question->type(), [QuestionType::Text, QuestionType::Textarea, QuestionType::Number, QuestionType::Select], true)) for="{{ $inputId }}" @endif>
-                            {{ $question->label() }}
+                            {{ $questionLabel }}
                             @if ($question->isRequired())
                                 <span class="lss-required" aria-hidden="true">*</span>
                             @endif
                         </label>
 
-                        @if ($question->getHelpText())
-                            <p class="lss-help">{{ $question->getHelpText() }}</p>
+                        @if ($questionHelpText)
+                            <p class="lss-help">{{ $questionHelpText }}</p>
                         @endif
 
                         @switch($question->type())
@@ -110,7 +121,7 @@
                                     type="text"
                                     name="{{ $fieldName }}"
                                     class="lss-input"
-                                    @if ($question->getPlaceholder()) placeholder="{{ $question->getPlaceholder() }}" @endif
+                                    @if ($questionPlaceholder) placeholder="{{ $questionPlaceholder }}" @endif
                                     @if ($question->getMaxLength() !== null) maxlength="{{ $question->getMaxLength() }}" @endif
                                     @if ($question->isRequired()) required @endif
                                 >
@@ -122,7 +133,7 @@
                                     name="{{ $fieldName }}"
                                     class="lss-textarea"
                                     rows="3"
-                                    @if ($question->getPlaceholder()) placeholder="{{ $question->getPlaceholder() }}" @endif
+                                    @if ($questionPlaceholder) placeholder="{{ $questionPlaceholder }}" @endif
                                     @if ($question->getMaxLength() !== null) maxlength="{{ $question->getMaxLength() }}" @endif
                                     @if ($question->isRequired()) required @endif
                                 ></textarea>
@@ -137,7 +148,7 @@
                                     @if ($question->getMin() !== null) min="{{ $question->getMin() }}" @endif
                                     @if ($question->getMax() !== null) max="{{ $question->getMax() }}" @endif
                                     @if ($question->getStep() !== null) step="{{ $question->getStep() }}" @endif
-                                    @if ($question->getPlaceholder()) placeholder="{{ $question->getPlaceholder() }}" @endif
+                                    @if ($questionPlaceholder) placeholder="{{ $questionPlaceholder }}" @endif
                                     @if ($question->isRequired()) required @endif
                                 >
                                 @break
@@ -149,8 +160,8 @@
                                     class="lss-select"
                                     @if ($question->isRequired()) required @endif
                                 >
-                                    <option value="">{{ $question->getPlaceholder() ?? 'Select an option...' }}</option>
-                                    @foreach ($question->getOptions() as $value => $optionLabel)
+                                    <option value="">{{ $questionPlaceholder ?? $translator->ui('select_placeholder') }}</option>
+                                    @foreach ($questionOptions as $value => $optionLabel)
                                         <option value="{{ $value }}">{{ $optionLabel }}</option>
                                     @endforeach
                                 </select>
@@ -158,7 +169,7 @@
 
                             @case(QuestionType::Radio)
                                 <div class="lss-options">
-                                    @foreach ($question->getOptions() as $value => $optionLabel)
+                                    @foreach ($questionOptions as $value => $optionLabel)
                                         <label class="lss-option-item">
                                             <input
                                                 type="radio"
@@ -174,7 +185,7 @@
 
                             @case(QuestionType::Checkbox)
                                 <div class="lss-options">
-                                    @foreach ($question->getOptions() as $value => $optionLabel)
+                                    @foreach ($questionOptions as $value => $optionLabel)
                                         <label class="lss-option-item">
                                             <input
                                                 type="checkbox"
@@ -211,11 +222,11 @@
                                 <div class="lss-boolean-group">
                                     <label class="lss-boolean-item">
                                         <input type="radio" name="{{ $fieldName }}" value="1" @if ($question->isRequired()) required @endif>
-                                        <span>Yes</span>
+                                        <span>{{ $translator->ui('yes') }}</span>
                                     </label>
                                     <label class="lss-boolean-item">
                                         <input type="radio" name="{{ $fieldName }}" value="0" @if ($question->isRequired()) required @endif>
-                                        <span>No</span>
+                                        <span>{{ $translator->ui('no') }}</span>
                                     </label>
                                 </div>
                                 @break
@@ -230,9 +241,9 @@
                 @if ($activeSurvey->isDismissible())
                     <button type="button" class="lss-btn-link" data-lss-dismiss data-lss-dismiss-source="card">
                         @if ($activeSurvey->getRepromptAfter() !== null)
-                            Remind me later
+                            {{ $translator->ui('remind_me_later') }}
                         @else
-                            Don't show again
+                            {{ $translator->ui('dont_show_again') }}
                         @endif
                     </button>
                 @else
@@ -240,7 +251,7 @@
                 @endif
 
                 <button type="submit" class="lss-btn-primary" data-lss-submit>
-                    {{ $activeSurvey->getSubmitLabel() }}
+                    {{ $surveySubmitLabel }}
                 </button>
             </div>
         </form>
@@ -251,7 +262,7 @@
                     <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
             </div>
-            <p class="lss-thanks-msg" data-lss-thanks-msg>{{ $activeSurvey->getThankYouMessage() }}</p>
+            <p class="lss-thanks-msg" data-lss-thanks-msg>{{ $surveyThankYouMessage }}</p>
         </div>
     </div>
 
@@ -279,6 +290,10 @@
             var openUrl = root.dataset.lssOpenUrl;
             var impressionUrl = root.dataset.lssImpressionUrl || '';
             var surveyKey = root.dataset.lssSurvey || '';
+            var submittingLabel = @json($translator->ui('submitting'));
+            var closeTitle = @json($translator->ui('close_title'));
+            var genericErrorMessage = @json($translator->ui('generic_error'));
+            var networkErrorMessage = @json($translator->ui('network_error'));
             var isSubmitted = false;
             var hasTrackedOpen = false;
             var openedAt = null;
@@ -738,7 +753,7 @@
                     var originalLabel = submitBtn ? submitBtn.textContent : '';
                     if (submitBtn) {
                         submitBtn.disabled = true;
-                        submitBtn.textContent = 'Submitting...';
+                        submitBtn.textContent = submittingLabel;
                     }
 
                     var durationMs = elapsedDurationMs();
@@ -776,7 +791,7 @@
                                 banner.remove();
                             }
                             if (closeBtn) {
-                                closeBtn.setAttribute('title', 'Close');
+                                closeBtn.setAttribute('title', closeTitle);
                             }
                             form.classList.add('lss-hidden');
                             if (thanksMsg && result.data && result.data.message) {
@@ -800,7 +815,7 @@
                                 }
                             });
                         } else {
-                            showGeneralError((result.data && result.data.message) || 'Something went wrong. Please try again.');
+                            showGeneralError((result.data && result.data.message) || genericErrorMessage);
                         }
 
                         if (submitBtn) {
@@ -808,7 +823,7 @@
                             submitBtn.textContent = originalLabel;
                         }
                     }).catch(function () {
-                        showGeneralError('Network error. Please try again.');
+                        showGeneralError(networkErrorMessage);
                         if (submitBtn) {
                             submitBtn.disabled = false;
                             submitBtn.textContent = originalLabel;

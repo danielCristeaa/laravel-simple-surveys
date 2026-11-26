@@ -194,6 +194,7 @@
                         <tr>
                             <th>#</th>
                             <th>Respondent</th>
+                            <th>Locale</th>
                             <th>Submitted At</th>
                             @foreach ($results['questions'] as $question)
                                 <th>{{ $question['label'] }}</th>
@@ -202,10 +203,22 @@
                     </thead>
                     <tbody>
                         @foreach ($results['responses'] as $response)
+                            @php
+                                $responseLocale = is_array($response->metadata) && is_string($response->metadata['locale'] ?? null) && trim($response->metadata['locale']) !== ''
+                                    ? trim($response->metadata['locale'])
+                                    : null;
+                            @endphp
                             <tr>
                                 <td>{{ $response->id }}</td>
                                 <td>
                                     <span class="muted" style="font-size: 12px;">#{{ $response->respondent_id }}</span>
+                                </td>
+                                <td style="white-space: nowrap;">
+                                    @if ($responseLocale !== null)
+                                        <code>{{ $responseLocale }}</code>
+                                    @else
+                                        <span class="muted">&mdash;</span>
+                                    @endif
                                 </td>
                                 <td style="white-space: nowrap;">{{ $response->created_at?->toDateTimeString() ?? '—' }}</td>
                                 @foreach ($results['questions'] as $question)
