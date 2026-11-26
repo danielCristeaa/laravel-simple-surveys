@@ -25,7 +25,7 @@ final class SurveySerializer
      *         theme: string,
      *         styles: array<string, string>
      *     },
-     *     urls: array{open: string, submit: string, dismiss: string},
+     *     urls: array{impression: string, open: string, submit: string, dismiss: string},
      *     questions: array<int, array{
      *         key: string,
      *         type: string,
@@ -60,6 +60,7 @@ final class SurveySerializer
             'reprompt_after_dismiss' => $survey->getRepromptAfter() !== null,
             'appearance' => ($appearance ?? new SurveyAppearance)->toArray(),
             'urls' => [
+                'impression' => route('simple-surveys.impression', $survey->key()),
                 'open' => route('simple-surveys.open', $survey->key()),
                 'submit' => route('simple-surveys.responses.store', $survey->key()),
                 'dismiss' => route('simple-surveys.dismiss', $survey->key()),

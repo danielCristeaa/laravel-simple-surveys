@@ -20,6 +20,7 @@
     data-lss-submit-url="{{ $submitUrl }}"
     data-lss-dismiss-url="{{ $dismissUrl }}"
     data-lss-open-url="{{ $openUrl }}"
+    @if (! empty($impressionUrl)) data-lss-impression-url="{{ $impressionUrl }}" @endif
     data-lss-thank-you="{{ $activeSurvey->getThankYouMessage() }}"
 >
     <style>{!! WidgetStyles::css() !!}</style>
@@ -258,6 +259,7 @@
             var submitUrl = root.dataset.lssSubmitUrl;
             var dismissUrl = root.dataset.lssDismissUrl;
             var openUrl = root.dataset.lssOpenUrl;
+            var impressionUrl = root.dataset.lssImpressionUrl || '';
             var isSubmitted = false;
             var hasTrackedOpen = false;
             var removeTimer = null;
@@ -278,6 +280,50 @@
                 var meta = document.querySelector('meta[name="csrf-token"]');
                 return meta ? meta.getAttribute('content') || '' : '';
             }
+
+            function trackImpression() {
+                if (!impressionUrl) {
+                    return;
+                }
+
+                var storageKey = 'lss_seen_' + (root.dataset.lssSurvey || '');
+
+                try {
+                    if (window.sessionStorage && window.sessionStorage.getItem(storageKey) === '1') {
+                        return;
+                    }
+                    if (window.sessionStorage) {
+                        window.sessionStorage.setItem(storageKey, '1');
+                    }
+                } catch (e) {}
+
+                fetch(impressionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': getCsrfToken()
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({})
+                }).then(function (response) {
+                    if (!response.ok) {
+                        try {
+                            if (window.sessionStorage) {
+                                window.sessionStorage.removeItem(storageKey);
+                            }
+                        } catch (e) {}
+                    }
+                }).catch(function () {
+                    try {
+                        if (window.sessionStorage) {
+                            window.sessionStorage.removeItem(storageKey);
+                        }
+                    } catch (e) {}
+                });
+            }
+
+            trackImpression();
 
             function clearErrors() {
                 if (generalError) {

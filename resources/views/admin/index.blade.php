@@ -7,6 +7,7 @@
         use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
         $totalSurveys = $summaries->count();
         $activeSurveys = $summaries->filter(fn (array $s): bool => $s['status'] === SurveyStatus::Active)->count();
+        $totalImpressions = $summaries->sum('impressions_count');
         $totalOpens = $summaries->sum('opens_count');
         $totalResponses = $summaries->sum('responses_count');
         $totalAbandoned = $summaries->sum('abandoned_count');
@@ -28,6 +29,10 @@
         <div class="card">
             <div class="kpi-label">Active Now</div>
             <div class="kpi-value">{{ $activeSurveys }}</div>
+        </div>
+        <div class="card">
+            <div class="kpi-label">Total Seen</div>
+            <div class="kpi-value">{{ $totalImpressions }}</div>
         </div>
         <div class="card">
             <div class="kpi-label">Total Opens</div>
@@ -60,11 +65,13 @@
                             <th>Survey</th>
                             <th>Status</th>
                             <th>Questions</th>
+                            <th>Seen</th>
                             <th>Opened</th>
                             <th>Responses</th>
                             <th>Abandoned</th>
                             <th>Dismissals</th>
-                            <th>Completion Rate</th>
+                            <th title="Responses / Seen">Response Rate</th>
+                            <th title="Responses / Opened">Completion Rate</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -86,10 +93,18 @@
                                     @endif
                                 </td>
                                 <td>{{ $survey['questions_count'] }}</td>
+                                <td>{{ $survey['impressions_count'] }}</td>
                                 <td>{{ $survey['opens_count'] }}</td>
                                 <td><strong>{{ $survey['responses_count'] }}</strong></td>
                                 <td>{{ $survey['abandoned_count'] }}</td>
                                 <td>{{ $survey['dismissals_count'] }}</td>
+                                <td>
+                                    @if ($survey['response_rate'] !== null)
+                                        {{ $survey['response_rate'] }}%
+                                    @else
+                                        <span class="muted">—</span>
+                                    @endif
+                                </td>
                                 <td>
                                     @if ($survey['completion_rate'] !== null)
                                         {{ $survey['completion_rate'] }}%

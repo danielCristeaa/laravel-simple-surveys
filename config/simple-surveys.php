@@ -9,7 +9,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The tables used to store surveys, questions, responses, answers,
-    | dismissals, and survey opens.
+    | dismissals, opens, and survey impressions.
     |
     */
     'tables' => [
@@ -19,6 +19,7 @@ return [
         'answers' => 'simple_survey_answers',
         'dismissals' => 'simple_survey_dismissals',
         'opens' => 'simple_survey_opens',
+        'impressions' => 'simple_survey_impressions',
     ],
 
     /*
@@ -57,6 +58,20 @@ return [
         'enabled' => true,
         'prefix' => 'simple-surveys',
         'middleware' => ['web', 'auth'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Funnel Tracking
+    |--------------------------------------------------------------------------
+    |
+    | Controls optional lightweight funnel telemetry sent by the customer
+    | widget. Set "impressions" to false to disable tracking unique users
+    | who have seen a survey banner.
+    |
+    */
+    'tracking' => [
+        'impressions' => true,
     ],
 
     /*

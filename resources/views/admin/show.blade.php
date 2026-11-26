@@ -50,13 +50,13 @@
                 </form>
             @endif
 
-            @if ($results['responses_count'] > 0 || $results['dismissals_count'] > 0 || $results['opens_count'] > 0)
+            @if ($results['responses_count'] > 0 || $results['dismissals_count'] > 0 || $results['opens_count'] > 0 || $results['impressions_count'] > 0)
                 <form
                     method="POST"
                     action="{{ route('simple-surveys.admin.reset', $results['key']) }}"
                     class="inline-form"
                     data-confirm-title="Reset survey responses?"
-                    data-confirm-message="This will permanently delete all submitted responses, answers, dismissals, and open tracking for this survey. Eligible users will be able to see and take it again."
+                    data-confirm-message="This will permanently delete all submitted responses, answers, dismissals, open tracking, and impression tracking for this survey. Eligible users will be able to see and take it again."
                     data-confirm-button="Reset Responses"
                     data-confirm-variant="danger"
                 >
@@ -86,12 +86,16 @@
 
     <div class="kpi-grid">
         <div class="card">
-            <div class="kpi-label">Responses</div>
-            <div class="kpi-value">{{ $results['responses_count'] }}</div>
+            <div class="kpi-label">Seen</div>
+            <div class="kpi-value">{{ $results['impressions_count'] }}</div>
         </div>
         <div class="card">
             <div class="kpi-label">Opened</div>
             <div class="kpi-value">{{ $results['opens_count'] }}</div>
+        </div>
+        <div class="card">
+            <div class="kpi-label">Responses</div>
+            <div class="kpi-value">{{ $results['responses_count'] }}</div>
         </div>
         <div class="card">
             <div class="kpi-label">Abandoned</div>
@@ -102,10 +106,18 @@
             <div class="kpi-value">{{ $results['dismissals_count'] }}</div>
         </div>
         <div class="card">
+            <div class="kpi-label">Response Rate</div>
+            <div class="kpi-value">
+                {{ $results['response_rate'] !== null ? $results['response_rate'] . '%' : '—' }}
+            </div>
+            <div class="kpi-hint">Responses / Seen</div>
+        </div>
+        <div class="card">
             <div class="kpi-label">Completion Rate</div>
             <div class="kpi-value">
                 {{ $results['completion_rate'] !== null ? $results['completion_rate'] . '%' : '—' }}
             </div>
+            <div class="kpi-hint">Responses / Opened</div>
         </div>
         <div class="card">
             <div class="kpi-label">Questions</div>

@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read Collection<int, SurveyResponse> $responses
  * @property-read Collection<int, SurveyDismissal> $dismissals
  * @property-read Collection<int, SurveyOpen> $opens
+ * @property-read Collection<int, SurveyImpression> $impressions
  */
 class SurveyRecord extends Model
 {
@@ -100,6 +101,14 @@ class SurveyRecord extends Model
     public function opens(): HasMany
     {
         return $this->hasMany(SurveyOpen::class, 'survey_id');
+    }
+
+    /**
+     * @return HasMany<SurveyImpression, $this>
+     */
+    public function impressions(): HasMany
+    {
+        return $this->hasMany(SurveyImpression::class, 'survey_id');
     }
 
     /**

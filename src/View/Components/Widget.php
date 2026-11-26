@@ -26,6 +26,8 @@ final class Widget extends Component
 
     public ?string $openUrl = null;
 
+    public ?string $impressionUrl = null;
+
     public ?string $widgetEndpointUrl = null;
 
     public string $position;
@@ -94,6 +96,9 @@ final class Widget extends Component
             $this->submitUrl = route('simple-surveys.responses.store', $this->activeSurvey->key());
             $this->dismissUrl = route('simple-surveys.dismiss', $this->activeSurvey->key());
             $this->openUrl = route('simple-surveys.open', $this->activeSurvey->key());
+            $this->impressionUrl = config('simple-surveys.tracking.impressions', true)
+                ? route('simple-surveys.impression', $this->activeSurvey->key())
+                : null;
         }
     }
 

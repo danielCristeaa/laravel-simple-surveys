@@ -109,6 +109,11 @@
             margin-top: 6px;
             letter-spacing: -0.02em;
         }
+        .kpi-hint {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
         .badge {
             display: inline-flex;
             align-items: center;

@@ -29,6 +29,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 'create_simple_surveys_tables',
                 'add_appearance_to_simple_surveys_table',
+                'create_simple_survey_impressions_table',
             ])
             ->hasCommand(SyncSurveysCommand::class);
     }

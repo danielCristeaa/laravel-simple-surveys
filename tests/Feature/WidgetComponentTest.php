@@ -71,6 +71,7 @@ it('renders the bottom-right widget with all question types for an eligible user
         ->toContain(route('simple-surveys.responses.store', 'product-survey'))
         ->toContain(route('simple-surveys.dismiss', 'product-survey'))
         ->toContain(route('simple-surveys.open', 'product-survey'))
+        ->toContain('data-lss-impression-url="'.route('simple-surveys.impression', 'product-survey').'"')
         ->toContain('name="answers[role]"')
         ->toContain('name="answers[notes]"')
         ->toContain('name="answers[team_size]"')
@@ -155,4 +156,26 @@ it('only renders the widget on routes and paths matching survey page targeting',
 
     $other = $this->actingAs($user)->get('/settings/profile')->assertOk();
     expect(trim($other->getContent() ?: ''))->toBe('');
+});
+
+it('omits impression tracking attribute when impression tracking is disabled', function (): void {
+    config()->set('simple-surveys.tracking.impressions', false);
+
+    $user = User::create(['name' => 'Noel', 'email' => 'noel@example.com']);
+
+    SimpleSurveys::register(Survey::make('quiet-survey')->title('Quiet Survey'));
+
+    $this->actingAs($user);
+
+    $bladeHtml = Blade::render('<x-simple-surveys::widget />');
+
+    expect($bladeHtml)
+        ->toContain('Quiet Survey')
+        ->not->toContain('data-lss-impression-url');
+
+    $this->actingAs($user)
+        ->get(route('simple-surveys.widget'))
+        ->assertOk()
+        ->assertSee('Quiet Survey')
+        ->assertDontSee('data-lss-impression-url');
 });

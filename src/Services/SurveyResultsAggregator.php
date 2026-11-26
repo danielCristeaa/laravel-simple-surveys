@@ -29,17 +29,19 @@ final class SurveyResultsAggregator
      *     status: SurveyStatus,
      *     registered: bool,
      *     questions_count: int,
+     *     impressions_count: int,
      *     opens_count: int,
      *     abandoned_count: int,
      *     responses_count: int,
      *     dismissals_count: int,
+     *     response_rate: float|null,
      *     completion_rate: float|null
      * }>
      */
     public function summaries(): Collection
     {
         $records = SurveyRecord::query()
-            ->withCount(['questions', 'responses', 'dismissals', 'opens'])
+            ->withCount(['questions', 'responses', 'dismissals', 'opens', 'impressions'])
             ->orderByDesc('priority')
             ->orderBy('title')
             ->get()
@@ -61,10 +63,12 @@ final class SurveyResultsAggregator
          *     status: SurveyStatus,
          *     registered: bool,
          *     questions_count: int,
+         *     impressions_count: int,
          *     opens_count: int,
          *     abandoned_count: int,
          *     responses_count: int,
          *     dismissals_count: int,
+         *     response_rate: float|null,
          *     completion_rate: float|null
          * }> $summaries */
         $summaries = [];
@@ -76,6 +80,7 @@ final class SurveyResultsAggregator
             $responsesCount = $record !== null ? (int) $record->getAttribute('responses_count') : 0;
             $dismissalsCount = $record !== null ? (int) $record->getAttribute('dismissals_count') : 0;
             $opensCount = $record !== null ? (int) $record->getAttribute('opens_count') : 0;
+            $impressionsCount = $record !== null ? (int) $record->getAttribute('impressions_count') : 0;
             $abandonedCount = $recordId !== null ? ($abandonedBySurveyId[$recordId] ?? 0) : 0;
 
             $summaries[] = [
@@ -85,11 +90,13 @@ final class SurveyResultsAggregator
                 'status' => $record !== null ? $record->status : $survey->status(),
                 'registered' => true,
                 'questions_count' => count($survey->getQuestions()),
+                'impressions_count' => $impressionsCount,
                 'opens_count' => $opensCount,
                 'abandoned_count' => $abandonedCount,
                 'responses_count' => $responsesCount,
                 'dismissals_count' => $dismissalsCount,
-                'completion_rate' => $this->completionRate($responsesCount, $dismissalsCount),
+                'response_rate' => $this->rate($responsesCount, $impressionsCount),
+                'completion_rate' => $this->rate($responsesCount, $opensCount),
             ];
         }
 
@@ -103,6 +110,7 @@ final class SurveyResultsAggregator
             $responsesCount = (int) $record->getAttribute('responses_count');
             $dismissalsCount = (int) $record->getAttribute('dismissals_count');
             $opensCount = (int) $record->getAttribute('opens_count');
+            $impressionsCount = (int) $record->getAttribute('impressions_count');
             $abandonedCount = $abandonedBySurveyId[$recordId] ?? 0;
 
             $summaries[] = [
@@ -112,11 +120,13 @@ final class SurveyResultsAggregator
                 'status' => SurveyStatus::Closed,
                 'registered' => false,
                 'questions_count' => (int) $record->getAttribute('questions_count'),
+                'impressions_count' => $impressionsCount,
                 'opens_count' => $opensCount,
                 'abandoned_count' => $abandonedCount,
                 'responses_count' => $responsesCount,
                 'dismissals_count' => $dismissalsCount,
-                'completion_rate' => $this->completionRate($responsesCount, $dismissalsCount),
+                'response_rate' => $this->rate($responsesCount, $impressionsCount),
+                'completion_rate' => $this->rate($responsesCount, $opensCount),
             ];
         }
 
@@ -130,10 +140,12 @@ final class SurveyResultsAggregator
      *     description: string|null,
      *     status: SurveyStatus,
      *     registered: bool,
+     *     impressions_count: int,
      *     opens_count: int,
      *     abandoned_count: int,
      *     responses_count: int,
      *     dismissals_count: int,
+     *     response_rate: float|null,
      *     completion_rate: float|null,
      *     questions: array<int, array<string, mixed>>,
      *     responses: LengthAwarePaginator<int, SurveyResponse>|null
@@ -144,7 +156,7 @@ final class SurveyResultsAggregator
         $record = SurveyRecord::query()
             ->byKey($surveyKey)
             ->with('questions')
-            ->withCount(['responses', 'dismissals', 'opens'])
+            ->withCount(['responses', 'dismissals', 'opens', 'impressions'])
             ->first();
 
         $registered = $this->registry->find($surveyKey);
@@ -174,10 +186,12 @@ final class SurveyResultsAggregator
                 'description' => $registered->getDescription(),
                 'status' => $registered->status(),
                 'registered' => true,
+                'impressions_count' => 0,
                 'opens_count' => 0,
                 'abandoned_count' => 0,
                 'responses_count' => 0,
                 'dismissals_count' => 0,
+                'response_rate' => null,
                 'completion_rate' => null,
                 'questions' => $emptyQuestions,
                 'responses' => null,
@@ -189,6 +203,7 @@ final class SurveyResultsAggregator
         $responsesCount = (int) $record->getAttribute('responses_count');
         $dismissalsCount = (int) $record->getAttribute('dismissals_count');
         $opensCount = (int) $record->getAttribute('opens_count');
+        $impressionsCount = (int) $record->getAttribute('impressions_count');
         $abandonedCounts = $this->abandonedCountsBySurveyId([$recordId]);
         $abandonedCount = $abandonedCounts[$recordId] ?? 0;
 
@@ -210,11 +225,13 @@ final class SurveyResultsAggregator
             'description' => $registered !== null ? $registered->getDescription() : $record->description,
             'status' => $record->status,
             'registered' => $registered !== null,
+            'impressions_count' => $impressionsCount,
             'opens_count' => $opensCount,
             'abandoned_count' => $abandonedCount,
             'responses_count' => $responsesCount,
             'dismissals_count' => $dismissalsCount,
-            'completion_rate' => $this->completionRate($responsesCount, $dismissalsCount),
+            'response_rate' => $this->rate($responsesCount, $impressionsCount),
+            'completion_rate' => $this->rate($responsesCount, $opensCount),
             'questions' => $questionsData,
             'responses' => $responses,
         ];
@@ -571,14 +588,12 @@ final class SurveyResultsAggregator
         return $counts;
     }
 
-    private function completionRate(int $responses, int $dismissals): ?float
+    private function rate(int $numerator, int $denominator): ?float
     {
-        $total = $responses + $dismissals;
-
-        if ($total === 0) {
+        if ($denominator <= 0) {
             return null;
         }
 
-        return round(($responses / $total) * 100, 1);
+        return min(100.0, round(($numerator / $denominator) * 100, 1));
     }
 }

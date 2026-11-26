@@ -9,8 +9,8 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 - **Flexible appearance customization:** Style all surveys globally or target individual surveys in your own CSS (`php artisan vendor:publish --tag="simple-surveys-styles"`), or fine-tune any survey visually with a live preview in the Admin Dashboard **Appearance** tab.
 - **Eloquent audience targeting:** Target authenticated users with real Eloquent queries (`where`, `whereHas`, scopes) or direct user predicates.
 - **8 built-in input types:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`.
-- **Normalized 6-table schema:** Stores surveys, questions, responses, typed answers, dismissals, and opens cleanly with native SQL analytics.
-- **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect funnel metrics (opened, answered, abandoned, dismissed) and visual breakdowns, end/re-open/reset surveys, and export CSVs.
+- **Normalized 7-table schema:** Stores surveys, questions, responses, typed answers, dismissals, opens, and impressions cleanly with native SQL analytics.
+- **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect funnel metrics (seen, opened, answered, abandoned, dismissed, response rate, and completion rate) and visual breakdowns, end/re-open/reset surveys, and export CSVs.
 - **Octane-safe & strictly typed:** PHP 8.2+, Laravel 11.x, 12.x & 13.x, PHPStan Level 8+.
 
 ## Requirements
@@ -246,7 +246,7 @@ Surveys only target **authenticated users** and automatically exclude users who 
 
 Visit `/simple-surveys/admin` (configurable via `config/simple-surveys.php`) to view:
 
-- Overview of active, scheduled, draft, closed, and archived surveys with opened, abandoned, response, and dismissal counts plus completion rates.
+- Overview of active, scheduled, draft, closed, and archived surveys with seen (unique impressions), opened, abandoned, response, and dismissal counts plus **Response Rate** (`responses / seen`) and **Completion Rate** (`responses / opens`).
 - Per-question analytics (averages/min/max for numeric & rating questions, percentage bar distributions for choice/boolean/rating questions, and recent text answers).
 - Paginated individual responses and streamed **CSV export**.
 - **End Survey Now**, **Re-open Survey**, and **Reset Responses** controls (with confirmation modals).
@@ -266,8 +266,9 @@ Gate::define('viewSimpleSurveys', function ($user): bool {
 
 ## Events
 
-The package dispatches three events you can listen to:
+The package dispatches four events you can listen to:
 
+- `DanielCristea\SimpleSurveys\Events\SurveySeen` (`$survey`, `$impression`, `$respondent`) — dispatched on a respondent's first recorded impression
 - `DanielCristea\SimpleSurveys\Events\SurveyOpened` (`$survey`, `$open`, `$respondent`)
 - `DanielCristea\SimpleSurveys\Events\SurveySubmitted` (`$survey`, `$response`, `$respondent`)
 - `DanielCristea\SimpleSurveys\Events\SurveyDismissed` (`$survey`, `$dismissal`, `$respondent`)
@@ -276,10 +277,11 @@ The package dispatches three events you can listen to:
 
 Key options in `config/simple-surveys.php`:
 
-- `tables.*` — Customize the 6 database table names (`simple_surveys`, `simple_survey_questions`, `simple_survey_responses`, `simple_survey_answers`, `simple_survey_dismissals`, `simple_survey_opens`).
+- `tables.*` — Customize the 7 database table names (`simple_surveys`, `simple_survey_questions`, `simple_survey_responses`, `simple_survey_answers`, `simple_survey_dismissals`, `simple_survey_opens`, `simple_survey_impressions`).
 - `respondent_key_type` — `'id'` (default), `'uuid'`, or `'ulid'`.
 - `guard` — Auth guard name (`null` uses your app's default guard).
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.
+- `tracking.impressions` — Enable/disable client-side impression ("Seen") tracking (`true` by default).
 - `admin` — Enable/disable admin dashboard routes, prefix, middleware, Gate ability name, and `appearance_editor` toggle.
 
 ## Testing & Quality

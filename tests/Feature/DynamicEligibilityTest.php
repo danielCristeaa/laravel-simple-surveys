@@ -114,6 +114,7 @@ it('returns serialized survey json or null on the eligible endpoint', function (
                 'dismissible' => true,
                 'reprompt_after_dismiss' => true,
                 'urls' => [
+                    'impression' => route('simple-surveys.impression', 'onboarding'),
                     'open' => route('simple-surveys.open', 'onboarding'),
                     'submit' => route('simple-surveys.responses.store', 'onboarding'),
                     'dismiss' => route('simple-surveys.dismiss', 'onboarding'),

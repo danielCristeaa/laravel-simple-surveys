@@ -15,10 +15,12 @@ it('loads default package configuration', function (): void {
         'answers' => 'simple_survey_answers',
         'dismissals' => 'simple_survey_dismissals',
         'opens' => 'simple_survey_opens',
+        'impressions' => 'simple_survey_impressions',
     ])
         ->and(config('simple-surveys.respondent_key_type'))->toBe('id')
         ->and(config('simple-surveys.guard'))->toBeNull()
         ->and(config('simple-surveys.routes.enabled'))->toBeTrue()
+        ->and(config('simple-surveys.tracking.impressions'))->toBeTrue()
         ->and(config('simple-surveys.admin.enabled'))->toBeTrue()
         ->and(config('simple-surveys.admin.gate'))->toBe('viewSimpleSurveys')
         ->and(config('simple-surveys.admin.appearance_editor'))->toBeTrue();

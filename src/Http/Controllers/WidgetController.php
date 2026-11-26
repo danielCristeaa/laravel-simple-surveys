@@ -70,6 +70,9 @@ final class WidgetController
                 'submitUrl' => route('simple-surveys.responses.store', $activeSurvey->key()),
                 'dismissUrl' => route('simple-surveys.dismiss', $activeSurvey->key()),
                 'openUrl' => route('simple-surveys.open', $activeSurvey->key()),
+                'impressionUrl' => config('simple-surveys.tracking.impressions', true)
+                    ? route('simple-surveys.impression', $activeSurvey->key())
+                    : null,
                 'position' => $appearance->resolvedPosition($defaultPosition)->value,
                 'theme' => $appearance->resolvedTheme($defaultTheme)->value,
                 'inlineStyle' => $appearance->toInlineStyle(),
