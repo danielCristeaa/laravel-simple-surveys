@@ -96,8 +96,8 @@
  * }
  *
  * Available element classes:
- *   .lss-root, .lss-backdrop, .lss-banner, .lss-banner-icon, .lss-banner-text,
- *   .lss-banner-actions, .lss-card, .lss-card-header, .lss-card-title,
+ *   .lss-root, .lss-backdrop, .lss-banner, .lss-banner-icon, .lss-banner-icon-img,
+ *   .lss-banner-text, .lss-banner-actions, .lss-card, .lss-card-header, .lss-card-title,
  *   .lss-card-desc, .lss-card-body, .lss-card-footer, .lss-field, .lss-label,
  *   .lss-help, .lss-input, .lss-textarea, .lss-select, .lss-options,
  *   .lss-option-item, .lss-rating-group, .lss-rating-item, .lss-boolean-group,

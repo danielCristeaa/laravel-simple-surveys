@@ -5,7 +5,9 @@
 @section('content')
     @php
         use DanielCristea\SimpleSurveys\Enums\QuestionType;
+        use DanielCristea\SimpleSurveys\Enums\WidgetIconPreset;
         use DanielCristea\SimpleSurveys\Services\WidgetStyles;
+        use DanielCristea\SimpleSurveys\WidgetIcon;
 
         $colorTokens = array_filter($tokens, static fn (array $meta): bool => $meta['group'] === 'colors');
         $dimensionTokens = array_filter($tokens, static fn (array $meta): bool => $meta['group'] === 'dimensions');
@@ -13,6 +15,35 @@
 
         $selectedTheme = old('theme', $appearance->theme?->value ?? '');
         $selectedPosition = old('position', $appearance->position?->value ?? '');
+        $selectedIconRaw = (string) old('icon', $appearance->icon?->toStorageValue() ?? '');
+
+        if ($selectedIconRaw === '') {
+            $selectedIconMode = 'inherit';
+        } elseif ($selectedIconRaw === WidgetIcon::NONE) {
+            $selectedIconMode = 'none';
+        } elseif (WidgetIconPreset::tryFrom($selectedIconRaw) !== null) {
+            $selectedIconMode = 'preset';
+        } else {
+            $selectedIconMode = 'custom';
+        }
+
+        $customIconPath = $selectedIconMode === 'custom' ? $selectedIconRaw : '';
+        $previewBannerIcon = $selectedIconRaw !== ''
+            ? (WidgetIcon::tryFrom($selectedIconRaw) ?? $inheritedIcon)
+            : $inheritedIcon;
+
+        $presetSvgMap = [];
+        foreach ($iconPresets as $presetCase) {
+            $presetSvgMap[$presetCase->value] = $presetCase->svg();
+        }
+
+        $inheritedIconPayload = [
+            'type' => $inheritedIcon->type,
+            'preset' => $inheritedIcon->preset?->value,
+            'svg' => $inheritedIcon->svg(),
+            'url' => $inheritedIcon->assetUrl(),
+        ];
+
         $previewTheme = $selectedTheme !== '' ? $selectedTheme : 'light';
         $previewPosition = $selectedPosition !== '' ? $selectedPosition : 'bottom-right';
         $previewQuestions = array_slice($survey->getQuestions(), 0, 3);
@@ -143,6 +174,120 @@
                         <span class="preset-dot" style="background: #0f172a;"></span> Slate
                     </button>
                 </div>
+            </div>
+
+            {{-- Banner Icon --}}
+            <div class="card">
+                <h2 class="section-heading">Banner Icon</h2>
+                <p class="section-desc">
+                    Pick a built-in preset icon, hide the icon, or point to a custom <code>.png</code> or <code>.svg</code> file inside your app's <code>public/</code> directory.
+                </p>
+
+                <input type="hidden" name="icon" id="lss-field-icon" value="{{ $selectedIconRaw }}">
+
+                <div class="icon-picker-grid" role="group" aria-label="Banner icon selection">
+                    <button
+                        type="button"
+                        class="icon-tile {{ $selectedIconMode === 'inherit' ? 'is-selected' : '' }}"
+                        data-icon-choice="inherit"
+                        aria-pressed="{{ $selectedIconMode === 'inherit' ? 'true' : 'false' }}"
+                    >
+                        <span class="icon-tile-glyph" aria-hidden="true">
+                            @if ($inheritedIcon->isPreset())
+                                {!! $inheritedIcon->svg() !!}
+                            @elseif ($inheritedIcon->isAsset())
+                                <img src="{{ $inheritedIcon->assetUrl() }}" alt="">
+                            @else
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                </svg>
+                            @endif
+                        </span>
+                        <span>Inherit ({{ $inheritedIcon->label() }})</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="icon-tile {{ $selectedIconMode === 'none' ? 'is-selected' : '' }}"
+                        data-icon-choice="none"
+                        aria-pressed="{{ $selectedIconMode === 'none' ? 'true' : 'false' }}"
+                    >
+                        <span class="icon-tile-glyph" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                            </svg>
+                        </span>
+                        <span>Hidden</span>
+                    </button>
+
+                    @foreach ($iconPresets as $presetCase)
+                        @php
+                            $isPresetSelected = $selectedIconMode === 'preset' && $selectedIconRaw === $presetCase->value;
+                        @endphp
+                        <button
+                            type="button"
+                            class="icon-tile {{ $isPresetSelected ? 'is-selected' : '' }}"
+                            data-icon-choice="preset"
+                            data-icon-preset="{{ $presetCase->value }}"
+                            aria-pressed="{{ $isPresetSelected ? 'true' : 'false' }}"
+                        >
+                            <span class="icon-tile-glyph" aria-hidden="true">{!! $presetCase->svg() !!}</span>
+                            <span>{{ $presetCase->label() }}</span>
+                        </button>
+                    @endforeach
+
+                    <button
+                        type="button"
+                        class="icon-tile {{ $selectedIconMode === 'custom' ? 'is-selected' : '' }}"
+                        data-icon-choice="custom"
+                        aria-pressed="{{ $selectedIconMode === 'custom' ? 'true' : 'false' }}"
+                    >
+                        <span class="icon-tile-glyph" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                        </span>
+                        <span>Custom</span>
+                    </button>
+                </div>
+
+                <div class="icon-custom-panel {{ $selectedIconMode === 'custom' ? '' : 'is-hidden' }}" id="lss-icon-custom-panel">
+                    <div class="form-field">
+                        <div class="form-label-row">
+                            <label class="form-label" for="lss-icon-custom-input">Custom Asset Path (.png or .svg)</label>
+                            <span class="token-tag">public/</span>
+                        </div>
+                        <div class="color-input-wrap">
+                            <input
+                                type="text"
+                                id="lss-icon-custom-input"
+                                class="form-control"
+                                value="{{ $customIconPath }}"
+                                placeholder="images/survey-icon.svg"
+                                autocomplete="off"
+                            >
+                            <button
+                                type="button"
+                                class="clear-field-btn"
+                                title="Clear custom path"
+                                aria-label="Clear custom icon path"
+                                id="lss-icon-custom-clear"
+                            >&times;</button>
+                        </div>
+                        <p class="icon-helper">
+                            Relative path inside <code>public/</code> resolved via <code>asset()</code> (e.g. <code>images/survey-icon.svg</code> or <code>/images/brand.png</code>).
+                        </p>
+                        <div class="icon-preview-warning is-hidden" id="lss-icon-load-warning" role="status"></div>
+                    </div>
+                </div>
+
+                @error('icon')
+                    <p class="form-error" style="margin-top: 8px;">{{ $message }}</p>
+                @enderror
             </div>
 
             {{-- Colors --}}
@@ -339,10 +484,22 @@
                     >
                         {{-- Preview Banner --}}
                         <div class="lss-banner lss-hidden" id="lss-preview-banner">
-                            <div class="lss-banner-icon" aria-hidden="true">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                </svg>
+                            <div
+                                class="lss-banner-icon {{ $previewBannerIcon->isNone() ? 'lss-hidden' : '' }}"
+                                id="lss-preview-banner-icon"
+                                @if ($previewBannerIcon->isPreset())
+                                    data-lss-icon-type="preset"
+                                    data-lss-icon="{{ $previewBannerIcon->preset?->value }}"
+                                @elseif ($previewBannerIcon->isAsset())
+                                    data-lss-icon-type="asset"
+                                @endif
+                                aria-hidden="true"
+                            >
+                                @if ($previewBannerIcon->isPreset())
+                                    {!! $previewBannerIcon->svg() !!}
+                                @elseif ($previewBannerIcon->isAsset())
+                                    <img class="lss-banner-icon-img" src="{{ $previewBannerIcon->assetUrl() }}" alt="" decoding="async">
+                                @endif
                             </div>
                             <p class="lss-banner-text">{{ $survey->getBannerText() }}</p>
                             <div class="lss-banner-actions">
@@ -491,9 +648,18 @@
             var previewCanvas = document.getElementById('lss-preview-canvas');
             var previewCard = document.getElementById('lss-preview-card');
             var previewBanner = document.getElementById('lss-preview-banner');
+            var previewBannerIcon = document.getElementById('lss-preview-banner-icon');
             var positionLabel = document.getElementById('lss-preview-position-label');
             var themeSelect = document.querySelector('[data-preview-theme]');
             var positionSelect = document.querySelector('[data-preview-position]');
+            var iconHiddenInput = document.getElementById('lss-field-icon');
+            var iconCustomPanel = document.getElementById('lss-icon-custom-panel');
+            var iconCustomInput = document.getElementById('lss-icon-custom-input');
+            var iconCustomClear = document.getElementById('lss-icon-custom-clear');
+            var iconLoadWarning = document.getElementById('lss-icon-load-warning');
+            var presetSvgs = @json($presetSvgMap);
+            var inheritedIcon = @json($inheritedIconPayload);
+            var assetBaseUrl = @json($assetBaseUrl);
 
             if (!previewRoot) {
                 return;
@@ -619,6 +785,181 @@
                     previewCard.classList.toggle('lss-hidden', mode !== 'card');
                     previewBanner.classList.toggle('lss-hidden', mode !== 'banner');
                 }
+            }
+
+            var assetPathRegex = /^(?!.*\.\.)(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*\.(?:png|svg)$/i;
+
+            function normalizeAssetPath(raw) {
+                var trimmed = (raw || '').trim();
+                if (!trimmed || trimmed.length > 255 || trimmed.indexOf('//') === 0) {
+                    return null;
+                }
+                var candidate = trimmed.charAt(0) === '/' ? trimmed.slice(1) : trimmed;
+                if (!candidate || !assetPathRegex.test(candidate)) {
+                    return null;
+                }
+                return candidate;
+            }
+
+            function hideIconWarning() {
+                if (iconLoadWarning) {
+                    iconLoadWarning.textContent = '';
+                    iconLoadWarning.classList.add('is-hidden');
+                }
+            }
+
+            function showIconWarning(message) {
+                if (iconLoadWarning) {
+                    iconLoadWarning.textContent = message;
+                    iconLoadWarning.classList.remove('is-hidden');
+                }
+            }
+
+            function renderPreviewIconAsset(url, warnOnError) {
+                if (!previewBannerIcon) {
+                    return;
+                }
+                previewBannerIcon.classList.remove('lss-hidden');
+                previewBannerIcon.dataset.lssIconType = 'asset';
+                delete previewBannerIcon.dataset.lssIcon;
+                previewBannerIcon.innerHTML = '';
+
+                var img = document.createElement('img');
+                img.className = 'lss-banner-icon-img';
+                img.alt = '';
+                img.decoding = 'async';
+                img.addEventListener('load', function () {
+                    hideIconWarning();
+                });
+                img.addEventListener('error', function () {
+                    if (warnOnError) {
+                        showIconWarning('Preview could not load "' + url + '". Make sure the file exists inside your application\'s public/ directory.');
+                    }
+                });
+                img.src = url;
+                previewBannerIcon.appendChild(img);
+            }
+
+            function renderPreviewIconPreset(presetKey, svgHtml) {
+                if (!previewBannerIcon) {
+                    return;
+                }
+                hideIconWarning();
+                previewBannerIcon.classList.remove('lss-hidden');
+                previewBannerIcon.dataset.lssIconType = 'preset';
+                previewBannerIcon.dataset.lssIcon = presetKey;
+                previewBannerIcon.innerHTML = svgHtml;
+            }
+
+            function renderPreviewIconHidden() {
+                if (!previewBannerIcon) {
+                    return;
+                }
+                hideIconWarning();
+                previewBannerIcon.classList.add('lss-hidden');
+                delete previewBannerIcon.dataset.lssIconType;
+                delete previewBannerIcon.dataset.lssIcon;
+                previewBannerIcon.innerHTML = '';
+            }
+
+            function renderInheritedPreviewIcon() {
+                if (inheritedIcon && inheritedIcon.type === 'none') {
+                    renderPreviewIconHidden();
+                } else if (inheritedIcon && inheritedIcon.type === 'asset' && inheritedIcon.url) {
+                    renderPreviewIconAsset(inheritedIcon.url, false);
+                } else if (inheritedIcon && inheritedIcon.svg) {
+                    renderPreviewIconPreset(inheritedIcon.preset || 'chat', inheritedIcon.svg);
+                } else {
+                    renderPreviewIconPreset('chat', presetSvgs.chat || '');
+                }
+            }
+
+            function setSelectedIconTile(mode, presetKey) {
+                document.querySelectorAll('[data-icon-choice]').forEach(function (tile) {
+                    var tileMode = tile.dataset.iconChoice;
+                    var isActive = tileMode === mode && (mode !== 'preset' || tile.dataset.iconPreset === presetKey);
+                    tile.classList.toggle('is-selected', isActive);
+                    tile.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                if (iconCustomPanel) {
+                    iconCustomPanel.classList.toggle('is-hidden', mode !== 'custom');
+                }
+            }
+
+            function applyCustomIconInput(switchToBanner) {
+                var raw = iconCustomInput ? iconCustomInput.value.trim() : '';
+
+                if (iconHiddenInput) {
+                    iconHiddenInput.value = raw;
+                }
+
+                if (switchToBanner) {
+                    setPreviewMode('banner');
+                }
+
+                if (raw === '') {
+                    hideIconWarning();
+                    renderInheritedPreviewIcon();
+                    return;
+                }
+
+                var normalized = normalizeAssetPath(raw);
+                if (!normalized) {
+                    renderPreviewIconHidden();
+                    showIconWarning('Invalid path format. Use a relative path inside public/ ending in .png or .svg (e.g. images/survey-icon.svg).');
+                    return;
+                }
+
+                var resolvedUrl = (assetBaseUrl ? assetBaseUrl + '/' : '/') + normalized;
+                renderPreviewIconAsset(resolvedUrl, true);
+            }
+
+            document.querySelectorAll('[data-icon-choice]').forEach(function (tile) {
+                tile.addEventListener('click', function () {
+                    var mode = tile.dataset.iconChoice;
+                    var presetKey = tile.dataset.iconPreset || '';
+
+                    setSelectedIconTile(mode, presetKey);
+                    setPreviewMode('banner');
+
+                    if (mode === 'inherit') {
+                        if (iconHiddenInput) iconHiddenInput.value = '';
+                        renderInheritedPreviewIcon();
+                    } else if (mode === 'none') {
+                        if (iconHiddenInput) iconHiddenInput.value = 'none';
+                        renderPreviewIconHidden();
+                    } else if (mode === 'preset') {
+                        if (iconHiddenInput) iconHiddenInput.value = presetKey;
+                        renderPreviewIconPreset(presetKey, presetSvgs[presetKey] || presetSvgs.chat || '');
+                    } else if (mode === 'custom') {
+                        applyCustomIconInput(true);
+                        if (iconCustomInput) {
+                            iconCustomInput.focus();
+                        }
+                    }
+                });
+            });
+
+            if (iconCustomInput) {
+                iconCustomInput.addEventListener('input', function () {
+                    setSelectedIconTile('custom', '');
+                    applyCustomIconInput(true);
+                });
+
+                if (iconCustomPanel && !iconCustomPanel.classList.contains('is-hidden')) {
+                    applyCustomIconInput(false);
+                }
+            }
+
+            if (iconCustomClear) {
+                iconCustomClear.addEventListener('click', function () {
+                    if (iconCustomInput) {
+                        iconCustomInput.value = '';
+                        applyCustomIconInput(true);
+                        iconCustomInput.focus();
+                    }
+                });
             }
 
             document.querySelectorAll('[data-preview-mode]').forEach(function (btn) {

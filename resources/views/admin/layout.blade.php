@@ -551,6 +551,88 @@
             border-radius: 9999px;
             border: 1px solid rgba(0, 0, 0, 0.12);
         }
+        .icon-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+            gap: 8px;
+        }
+        .icon-tile {
+            appearance: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 8px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 11.5px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .icon-tile:hover {
+            background: var(--bg);
+            border-color: #cbd5e1;
+        }
+        .icon-tile.is-selected {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-weight: 600;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
+        }
+        .icon-tile-glyph {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            background: var(--slate-bg);
+            color: var(--slate-text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .icon-tile.is-selected .icon-tile-glyph {
+            background: rgba(79, 70, 229, 0.12);
+            color: var(--accent);
+        }
+        .icon-tile-glyph img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .icon-custom-panel {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .icon-custom-panel.is-hidden {
+            display: none;
+        }
+        .icon-helper {
+            margin: 6px 0 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .icon-preview-warning {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .icon-preview-warning.is-hidden {
+            display: none;
+        }
         .preview-sticky {
             position: sticky;
             top: 20px;

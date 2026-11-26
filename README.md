@@ -132,12 +132,18 @@ Optional attributes:
 {{-- Use centered modal placement (subtle bottom-center banner that opens into a centered modal) --}}
 <x-simple-surveys::widget position="center" theme="auto" />
 
+{{-- Customize or hide the banner icon (preset, "none", or public/ .png/.svg path) --}}
+<x-simple-surveys::widget icon="sparkles" />
+<x-simple-surveys::widget icon="images/survey-icon.svg" />
+<x-simple-surveys::widget icon="none" />
+
 {{-- Enable dynamic SPA mode for Inertia.js / Livewire wire:navigate --}}
 <x-simple-surveys::widget dynamic />
 ```
 
 Supported `position` values: `bottom-right` (default), `bottom-left`, `top-right`, `top-left`, and `center`.
 Supported `theme` values: `light` (default), `dark`, and `auto` (follows `prefers-color-scheme: dark`).
+Supported `icon` values: built-in presets (`chat` default, `star`, `sparkles`, `megaphone`, `clipboard`, `heart`, `lightbulb`, `thumbs-up`, `bell`, `help`), `none` (hides the icon), or a relative path inside `public/` ending in `.png` or `.svg` (resolved via `asset()`). You can also set a global default in `config/simple-surveys.php` (`widget.icon`), per survey via `Survey::make(...)->icon(...)` / `->withoutIcon()`, or per survey in the Admin Dashboard **Appearance** tab.
 
 The widget renders nothing for guests or authenticated users who have no eligible surveys (0 DB queries for guests).
 
@@ -210,6 +216,7 @@ php artisan vendor:publish --tag="simple-surveys-views"
 Open any registered survey in `/simple-surveys/admin/{surveyKey}` and click the **Appearance** tab to visually customize:
 
 - **Presets & Placement:** Theme (`light`, `dark`, `auto`), placement (`bottom-right`, `bottom-left`, `top-right`, `top-left`, `center`), and quick accent palettes.
+- **Banner Icon:** Choose from 10 built-in SVG presets, hide the icon (`none`), or reference a custom `.png`/`.svg` asset inside `public/`.
 - **Colors:** Button/accent, hover, button text, background, surface, border, primary text, and muted text.
 - **Dimensions & Shape:** Card width, card max height, banner max width, and card/button/input border radii.
 - **Typography:** Base font size and font family.
@@ -401,6 +408,7 @@ Key options in `config/simple-surveys.php`:
 - `respondent_key_type` — `'id'` (default), `'uuid'`, or `'ulid'`.
 - `guard` — Auth guard name (`null` uses your app's default guard).
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.
+- `widget` — Default customer widget settings (`widget.icon` — built-in preset, `'none'`, or relative `public/` `.png`/`.svg` path).
 - `tracking` — Toggle impression tracking (`tracking.impressions`) and auto-captured cookies (`tracking.cookies`).
 - `webhooks` — Enable/configure server-to-server lifecycle webhooks (`enabled`, `url`, `events`, `secret`, `signature_header`, `headers`, `queued`, `queue`, `timeout`, `tries`, `backoff`).
 - `notifications` — Enable/configure optional submission notifications (`enabled`, `notification`, `channels`, `routes`, `queued`, `queue`, `slack_timeout`).

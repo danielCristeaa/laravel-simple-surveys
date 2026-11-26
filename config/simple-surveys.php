@@ -64,6 +64,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Customer Widget Defaults
+    |--------------------------------------------------------------------------
+    |
+    | Default visual settings for the customer-facing survey widget banner.
+    |
+    | "icon" accepts:
+    |   - A built-in preset name: "chat" (default), "star", "sparkles",
+    |     "megaphone", "clipboard", "heart", "lightbulb", "thumbs-up",
+    |     "bell", or "help"
+    |   - "none" to hide the banner icon completely
+    |   - A relative path under public/ ending in .png or .svg
+    |     (e.g. "images/survey-icon.svg"), resolved via asset()
+    |
+    */
+    'widget' => [
+        'icon' => 'chat',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Funnel Tracking & Context
     |--------------------------------------------------------------------------
     |

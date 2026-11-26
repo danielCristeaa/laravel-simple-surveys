@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
+use DanielCristea\SimpleSurveys\Enums\WidgetIconPreset;
 use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
+use DanielCristea\SimpleSurveys\WidgetIcon;
 use Illuminate\Database\Eloquent\Builder;
 
 it('builds a survey with sensible defaults', function (): void {
@@ -139,4 +141,28 @@ it('matches routes and url paths with wildcard support and exclusions', function
     expect($exclusionOnly->matchesPage(new PageContext('home', '/')))->toBeTrue()
         ->and($exclusionOnly->matchesPage(new PageContext('admin.users', 'admin/users')))->toBeFalse()
         ->and($exclusionOnly->matchesPage(new PageContext('shop.checkout', '/checkout')))->toBeFalse();
+});
+
+it('configures banner icon fluently and validates invalid inputs', function (): void {
+    $defaultSurvey = Survey::make('default-icon');
+    expect($defaultSurvey->getIcon())->toBeNull();
+
+    $presetSurvey = Survey::make('preset-icon')->icon('sparkles');
+    expect($presetSurvey->getIcon()?->preset)->toBe(WidgetIconPreset::Sparkles);
+
+    $enumSurvey = Survey::make('enum-icon')->icon(WidgetIconPreset::Heart);
+    expect($enumSurvey->getIcon()?->preset)->toBe(WidgetIconPreset::Heart);
+
+    $assetSurvey = Survey::make('asset-icon')->icon('/images/survey-badge.png');
+    expect($assetSurvey->getIcon()?->isAsset())->toBeTrue()
+        ->and($assetSurvey->getIcon()?->assetPath)->toBe('images/survey-badge.png');
+
+    $hiddenSurvey = Survey::make('hidden-icon')->withoutIcon();
+    expect($hiddenSurvey->getIcon()?->isNone())->toBeTrue();
+
+    $resetSurvey = Survey::make('reset-icon')->icon(WidgetIcon::none())->icon(null);
+    expect($resetSurvey->getIcon())->toBeNull();
+
+    expect(fn () => Survey::make('invalid-icon')->icon('https://evil.test/icon.svg'))
+        ->toThrow(InvalidArgumentException::class);
 });

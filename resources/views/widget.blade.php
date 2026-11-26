@@ -1,10 +1,12 @@
 @php
     use DanielCristea\SimpleSurveys\Enums\QuestionType;
     use DanielCristea\SimpleSurveys\Services\WidgetStyles;
+    use DanielCristea\SimpleSurveys\WidgetIcon;
     /** @var \DanielCristea\SimpleSurveys\Survey $activeSurvey */
     $widgetId = 'lss-widget-' . \Illuminate\Support\Str::slug($activeSurvey->key());
     $resolvedPosition = $position ?? 'bottom-right';
     $resolvedTheme = $theme ?? 'light';
+    $resolvedBannerIcon = $bannerIcon ?? WidgetIcon::fromConfig();
     $resolvedInlineStyle = $inlineStyle ?? '';
 @endphp
 
@@ -29,11 +31,15 @@
 
     {{-- Collapsed Banner --}}
     <div class="lss-banner" data-lss-banner>
-        <div class="lss-banner-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-        </div>
+        @if ($resolvedBannerIcon->isPreset())
+            <div class="lss-banner-icon" data-lss-icon-type="preset" data-lss-icon="{{ $resolvedBannerIcon->preset?->value }}" aria-hidden="true">
+                {!! $resolvedBannerIcon->svg() !!}
+            </div>
+        @elseif ($resolvedBannerIcon->isAsset())
+            <div class="lss-banner-icon" data-lss-icon-type="asset" aria-hidden="true">
+                <img class="lss-banner-icon-img" src="{{ $resolvedBannerIcon->assetUrl() }}" alt="" decoding="async">
+            </div>
+        @endif
         <p class="lss-banner-text">{{ $activeSurvey->getBannerText() }}</p>
         <div class="lss-banner-actions">
             <button type="button" class="lss-btn-primary" data-lss-open aria-expanded="false">

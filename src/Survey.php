@@ -9,6 +9,7 @@ use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
 use Closure;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
+use DanielCristea\SimpleSurveys\Enums\WidgetIconPreset;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DateInterval;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -23,6 +24,8 @@ final class Survey
     private string $title;
 
     private ?string $bannerText = null;
+
+    private ?WidgetIcon $icon = null;
 
     private ?string $description = null;
 
@@ -108,6 +111,40 @@ final class Survey
         $this->bannerText = $bannerText;
 
         return $this;
+    }
+
+    /**
+     * Customize the widget banner icon for this survey.
+     *
+     * Accepts a built-in preset name (or WidgetIconPreset enum), "none" to hide
+     * the icon, a relative public/ .png/.svg path, or null to inherit defaults.
+     */
+    public function icon(WidgetIcon|WidgetIconPreset|string|null $icon): self
+    {
+        if ($icon === null || (is_string($icon) && trim($icon) === '')) {
+            $this->icon = null;
+
+            return $this;
+        }
+
+        $this->icon = WidgetIcon::from($icon);
+
+        return $this;
+    }
+
+    /**
+     * Hide the widget banner icon for this survey.
+     */
+    public function withoutIcon(): self
+    {
+        $this->icon = WidgetIcon::none();
+
+        return $this;
+    }
+
+    public function getIcon(): ?WidgetIcon
+    {
+        return $this->icon;
     }
 
     public function description(?string $description): self

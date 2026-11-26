@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys\Http\Controllers\Admin;
 
+use DanielCristea\SimpleSurveys\Enums\WidgetIconPreset;
 use DanielCristea\SimpleSurveys\Enums\WidgetPosition;
 use DanielCristea\SimpleSurveys\Enums\WidgetTheme;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
@@ -12,6 +13,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\SurveyAppearance;
+use DanielCristea\SimpleSurveys\WidgetIcon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,6 +44,9 @@ final class SurveyAppearanceController
             'appearance' => $appearance,
             'positions' => WidgetPosition::cases(),
             'themes' => WidgetTheme::cases(),
+            'iconPresets' => WidgetIconPreset::cases(),
+            'inheritedIcon' => $survey->getIcon() ?? WidgetIcon::fromConfig(),
+            'assetBaseUrl' => rtrim(asset(''), '/'),
             'tokens' => SurveyAppearance::STYLE_TOKENS,
         ]);
     }
@@ -53,7 +58,9 @@ final class SurveyAppearanceController
         $survey = $this->findRegisteredSurvey($surveyKey);
 
         /** @var array<string, mixed> $validated */
-        $validated = $request->validate(SurveyAppearance::validationRules());
+        $validated = $request->validate(SurveyAppearance::validationRules(), [
+            'icon.regex' => 'The banner icon must be a built-in preset, "none", or a relative public/ path ending in .png or .svg.',
+        ]);
         $appearance = SurveyAppearance::fromArray($validated);
 
         $record = SurveyRecord::query()->byKey($surveyKey)->first()

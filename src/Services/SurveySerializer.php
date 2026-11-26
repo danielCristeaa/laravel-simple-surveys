@@ -7,6 +7,7 @@ namespace DanielCristea\SimpleSurveys\Services;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\SurveyAppearance;
+use DanielCristea\SimpleSurveys\WidgetIcon;
 
 final class SurveySerializer
 {
@@ -23,6 +24,7 @@ final class SurveySerializer
      *     appearance: array{
      *         position: string,
      *         theme: string,
+     *         icon: array{type: 'preset'|'asset'|'none', preset: string|null, url: string|null},
      *         styles: array<string, string>
      *     },
      *     urls: array{impression: string, open: string, submit: string, dismiss: string},
@@ -49,6 +51,8 @@ final class SurveySerializer
             $questions[] = $this->serializeQuestion($question);
         }
 
+        $fallbackIcon = $survey->getIcon() ?? WidgetIcon::fromConfig();
+
         return [
             'key' => $survey->key(),
             'title' => $survey->getTitle(),
@@ -58,7 +62,7 @@ final class SurveySerializer
             'thank_you_message' => $survey->getThankYouMessage(),
             'dismissible' => $survey->isDismissible(),
             'reprompt_after_dismiss' => $survey->getRepromptAfter() !== null,
-            'appearance' => ($appearance ?? new SurveyAppearance)->toArray(),
+            'appearance' => ($appearance ?? new SurveyAppearance)->toArray(defaultIcon: $fallbackIcon),
             'urls' => [
                 'impression' => route('simple-surveys.impression', $survey->key()),
                 'open' => route('simple-surveys.open', $survey->key()),

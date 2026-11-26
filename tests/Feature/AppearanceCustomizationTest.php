@@ -199,6 +199,11 @@ it('lets admins customize survey appearance with live preview, applies it everyw
         ->assertJsonPath('survey.appearance', [
             'position' => 'center',
             'theme' => 'dark',
+            'icon' => [
+                'type' => 'preset',
+                'preset' => 'chat',
+                'url' => null,
+            ],
             'styles' => [
                 'accent' => '#10b981',
                 'background' => '#111827',
@@ -232,6 +237,11 @@ it('lets admins customize survey appearance with live preview, applies it everyw
         ->assertJsonPath('survey.appearance', [
             'position' => 'bottom-right',
             'theme' => 'light',
+            'icon' => [
+                'type' => 'preset',
+                'preset' => 'chat',
+                'url' => null,
+            ],
             'styles' => [],
         ]);
 });
@@ -287,15 +297,199 @@ it('hides the appearance tab and returns 404 when admin.appearance_editor is dis
         ->assertNotFound();
 });
 
-it('passes theme attribute to dynamic widget endpoint url only when explicitly provided and keeps guest requests zero-query', function (): void {
+it('passes theme and icon attributes to dynamic widget endpoint url only when explicitly provided and keeps guest requests zero-query', function (): void {
     SimpleSurveys::register(Survey::make('theme-spa')->title('Theme SPA'));
 
     DB::enableQueryLog();
     DB::flushQueryLog();
 
-    $htmlWithTheme = Blade::render('<x-simple-surveys::widget dynamic position="top-right" theme="dark" />');
+    $htmlWithThemeAndIcon = Blade::render('<x-simple-surveys::widget dynamic position="top-right" theme="dark" icon="sparkles" />');
 
-    expect($htmlWithTheme)
-        ->toContain(e(route('simple-surveys.widget', ['position' => 'top-right', 'theme' => 'dark'])))
+    expect($htmlWithThemeAndIcon)
+        ->toContain(e(route('simple-surveys.widget', ['position' => 'top-right', 'theme' => 'dark', 'icon' => 'sparkles'])))
         ->and(DB::getQueryLog())->toBeEmpty();
 });
+
+it('supports banner icon customization across global config, Blade prop, fluent API, Admin dashboard, SPA widget, and eligible JSON', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $customer = User::create(['name' => 'Customer', 'email' => 'customer@example.com', 'is_admin' => false]);
+
+    // 1. Global config default applies when no survey/Blade/dashboard override is set
+    config()->set('simple-surveys.widget.icon', 'megaphone');
+
+    SimpleSurveys::register(
+        Survey::make('icon-survey')
+            ->title('Icon Survey')
+            ->questions([Question::rating('score', 'Score')->required()])
+    );
+
+    $this->actingAs($customer);
+
+    expect(Blade::render('<x-simple-surveys::widget />'))
+        ->toContain('data-lss-icon-type="preset"')
+        ->toContain('data-lss-icon="megaphone"');
+
+    $this->actingAs($customer)
+        ->getJson(route('simple-surveys.eligible'))
+        ->assertOk()
+        ->assertJsonPath('survey.appearance.icon', [
+            'type' => 'preset',
+            'preset' => 'megaphone',
+            'url' => null,
+        ]);
+
+    // 2. Blade component prop overrides global config
+    expect(Blade::render('<x-simple-surveys::widget icon="star" />'))
+        ->toContain('data-lss-icon-type="preset"')
+        ->toContain('data-lss-icon="star"');
+
+    expect(Blade::render('<x-simple-surveys::widget icon="none" />'))
+        ->not->toContain('class="lss-banner-icon"');
+
+    expect(Blade::render('<x-simple-surveys::widget icon="/images/custom-badge.png" />'))
+        ->toContain('data-lss-icon-type="asset"')
+        ->toContain('class="lss-banner-icon-img"')
+        ->toContain('src="'.asset('images/custom-badge.png').'"');
+
+    // 3. Fluent per-survey Survey::icon() overrides Blade prop & global config
+    SimpleSurveys::clear();
+    SimpleSurveys::register(
+        Survey::make('icon-survey')
+            ->title('Icon Survey')
+            ->icon('lightbulb')
+            ->questions([Question::rating('score', 'Score')->required()])
+    );
+
+    expect(Blade::render('<x-simple-surveys::widget icon="star" />'))
+        ->toContain('data-lss-icon="lightbulb"');
+
+    $this->actingAs($customer)
+        ->getJson(route('simple-surveys.eligible'))
+        ->assertOk()
+        ->assertJsonPath('survey.appearance.icon', [
+            'type' => 'preset',
+            'preset' => 'lightbulb',
+            'url' => null,
+        ]);
+
+    // 4. Admin Dashboard Appearance tab shows picker and saves preset override (highest precedence)
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.appearance.edit', 'icon-survey'))
+        ->assertOk()
+        ->assertSee('Banner Icon')
+        ->assertSee('Inherit (Lightbulb)')
+        ->assertSee('data-icon-preset="sparkles"', false);
+
+    $this->actingAs($admin)
+        ->put(route('simple-surveys.admin.appearance.update', 'icon-survey'), [
+            'icon' => 'sparkles',
+        ])
+        ->assertRedirect(route('simple-surveys.admin.appearance.edit', 'icon-survey'));
+
+    SimpleSurveys::sync();
+
+    expect(SurveyRecord::query()->byKey('icon-survey')->firstOrFail()->appearance)
+        ->toBe(['icon' => 'sparkles']);
+
+    $this->actingAs($customer);
+    expect(Blade::render('<x-simple-surveys::widget icon="star" />'))
+        ->toContain('data-lss-icon="sparkles"');
+
+    $this->actingAs($customer)
+        ->get(route('simple-surveys.widget', ['icon' => 'star']))
+        ->assertOk()
+        ->assertSee('data-lss-icon="sparkles"', false);
+
+    $this->actingAs($customer)
+        ->getJson(route('simple-surveys.eligible'))
+        ->assertOk()
+        ->assertJsonPath('survey.appearance.icon', [
+            'type' => 'preset',
+            'preset' => 'sparkles',
+            'url' => null,
+        ]);
+
+    // 5. Admin Dashboard saves custom .svg asset path
+    $this->actingAs($admin)
+        ->put(route('simple-surveys.admin.appearance.update', 'icon-survey'), [
+            'icon' => '/images/brand/survey-mark.svg',
+        ])
+        ->assertRedirect(route('simple-surveys.admin.appearance.edit', 'icon-survey'));
+
+    expect(SurveyRecord::query()->byKey('icon-survey')->firstOrFail()->appearance)
+        ->toBe(['icon' => 'images/brand/survey-mark.svg']);
+
+    $this->actingAs($customer);
+    expect(Blade::render('<x-simple-surveys::widget />'))
+        ->toContain('data-lss-icon-type="asset"')
+        ->toContain('src="'.asset('images/brand/survey-mark.svg').'"');
+
+    $this->actingAs($customer)
+        ->getJson(route('simple-surveys.eligible'))
+        ->assertOk()
+        ->assertJsonPath('survey.appearance.icon', [
+            'type' => 'asset',
+            'preset' => null,
+            'url' => asset('images/brand/survey-mark.svg'),
+        ]);
+
+    // 6. Admin Dashboard hides icon completely ("none")
+    $this->actingAs($admin)
+        ->put(route('simple-surveys.admin.appearance.update', 'icon-survey'), [
+            'icon' => 'none',
+        ])
+        ->assertRedirect(route('simple-surveys.admin.appearance.edit', 'icon-survey'));
+
+    $this->actingAs($customer);
+    expect(Blade::render('<x-simple-surveys::widget />'))
+        ->not->toContain('class="lss-banner-icon"');
+
+    $this->actingAs($customer)
+        ->get(route('simple-surveys.widget'))
+        ->assertOk()
+        ->assertDontSee('class="lss-banner-icon"', false);
+
+    $this->actingAs($customer)
+        ->getJson(route('simple-surveys.eligible'))
+        ->assertOk()
+        ->assertJsonPath('survey.appearance.icon', [
+            'type' => 'none',
+            'preset' => null,
+            'url' => null,
+        ]);
+
+    // 7. Reset to Defaults clears icon override and falls back to Survey::icon()
+    $this->actingAs($admin)
+        ->delete(route('simple-surveys.admin.appearance.reset', 'icon-survey'))
+        ->assertRedirect(route('simple-surveys.admin.appearance.edit', 'icon-survey'));
+
+    $this->actingAs($customer)
+        ->getJson(route('simple-surveys.eligible'))
+        ->assertOk()
+        ->assertJsonPath('survey.appearance.icon', [
+            'type' => 'preset',
+            'preset' => 'lightbulb',
+            'url' => null,
+        ]);
+});
+
+it('rejects invalid banner icon values on admin appearance update', function (string $invalidIcon): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+
+    SimpleSurveys::register(Survey::make('icon-validation')->title('Icon Validation'));
+
+    $this->actingAs($admin)
+        ->from(route('simple-surveys.admin.appearance.edit', 'icon-validation'))
+        ->put(route('simple-surveys.admin.appearance.update', 'icon-validation'), [
+            'icon' => $invalidIcon,
+        ])
+        ->assertRedirect(route('simple-surveys.admin.appearance.edit', 'icon-validation'))
+        ->assertSessionHasErrors(['icon']);
+})->with([
+    'unknown preset' => 'not-a-preset',
+    'external url' => 'https://evil.test/icon.svg',
+    'protocol relative' => '//evil.test/icon.png',
+    'path traversal' => '../secret.svg',
+    'unsupported ext' => 'images/photo.jpg',
+    'script injection' => 'images/icon.svg" onerror="alert(1)',
+]);

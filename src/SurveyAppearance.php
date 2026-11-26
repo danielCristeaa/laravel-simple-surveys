@@ -168,6 +168,7 @@ final readonly class SurveyAppearance
         public ?WidgetPosition $position = null,
         public ?WidgetTheme $theme = null,
         public array $styles = [],
+        public ?WidgetIcon $icon = null,
     ) {}
 
     /**
@@ -186,6 +187,8 @@ final readonly class SurveyAppearance
         $theme = is_string($data['theme'] ?? null)
             ? WidgetTheme::tryFrom($data['theme'])
             : null;
+
+        $icon = WidgetIcon::tryFrom($data['icon'] ?? null);
 
         /** @var array<string, string> $styles */
         $styles = [];
@@ -212,6 +215,7 @@ final readonly class SurveyAppearance
             position: $position,
             theme: $theme,
             styles: $styles,
+            icon: $icon,
         );
     }
 
@@ -260,6 +264,7 @@ final readonly class SurveyAppearance
         $rules = [
             'position' => ['nullable', 'string', 'in:'.implode(',', WidgetPosition::values())],
             'theme' => ['nullable', 'string', 'in:'.implode(',', WidgetTheme::values())],
+            'icon' => ['nullable', 'string', 'max:'.WidgetIcon::MAX_LENGTH, 'regex:'.WidgetIcon::validationPattern()],
             'styles' => ['nullable', 'array'],
         ];
 
@@ -284,6 +289,7 @@ final readonly class SurveyAppearance
     {
         return $this->position === null
             && $this->theme === null
+            && $this->icon === null
             && $this->styles === [];
     }
 
@@ -295,6 +301,11 @@ final readonly class SurveyAppearance
     public function resolvedTheme(?WidgetTheme $fallback = null): WidgetTheme
     {
         return $this->theme ?? $fallback ?? WidgetTheme::Light;
+    }
+
+    public function resolvedIcon(?WidgetIcon $fallback = null): WidgetIcon
+    {
+        return $this->icon ?? $fallback ?? WidgetIcon::default();
     }
 
     public function style(string $token): ?string
@@ -326,7 +337,7 @@ final readonly class SurveyAppearance
     /**
      * Compact array suitable for database storage (null when no overrides exist).
      *
-     * @return array{position?: string, theme?: string, styles?: array<string, string>}|null
+     * @return array{position?: string, theme?: string, icon?: string, styles?: array<string, string>}|null
      */
     public function toStorageArray(): ?array
     {
@@ -344,6 +355,10 @@ final readonly class SurveyAppearance
             $payload['theme'] = $this->theme->value;
         }
 
+        if ($this->icon !== null) {
+            $payload['icon'] = $this->icon->toStorageValue();
+        }
+
         if ($this->styles !== []) {
             $payload['styles'] = $this->styles;
         }
@@ -357,16 +372,19 @@ final readonly class SurveyAppearance
      * @return array{
      *     position: string,
      *     theme: string,
+     *     icon: array{type: 'preset'|'asset'|'none', preset: string|null, url: string|null},
      *     styles: array<string, string>
      * }
      */
     public function toArray(
         ?WidgetPosition $defaultPosition = null,
         ?WidgetTheme $defaultTheme = null,
+        ?WidgetIcon $defaultIcon = null,
     ): array {
         return [
             'position' => $this->resolvedPosition($defaultPosition)->value,
             'theme' => $this->resolvedTheme($defaultTheme)->value,
+            'icon' => $this->resolvedIcon($defaultIcon)->toArray(),
             'styles' => $this->styles,
         ];
     }

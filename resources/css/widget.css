@@ -188,6 +188,17 @@
     justify-content: center;
 }
 
+:where(.lss-banner-icon[data-lss-icon-type="asset"]) {
+    background: transparent;
+}
+
+:where(.lss-banner-icon-img) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
 :where(.lss-banner-text) {
     flex: 1;
     font-weight: 500;

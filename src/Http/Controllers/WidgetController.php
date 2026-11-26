@@ -11,6 +11,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
+use DanielCristea\SimpleSurveys\WidgetIcon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -36,6 +37,7 @@ final class WidgetController
         $urlParam = $request->query('url');
         $positionParam = $request->query('position', 'bottom-right');
         $themeParam = $request->query('theme');
+        $iconParam = $request->query('icon');
 
         $defaultPosition = is_string($positionParam)
             ? (WidgetPosition::tryFrom($positionParam) ?? WidgetPosition::BottomRight)
@@ -43,6 +45,10 @@ final class WidgetController
 
         $defaultTheme = is_string($themeParam) && $themeParam !== ''
             ? WidgetTheme::tryFrom($themeParam)
+            : null;
+
+        $defaultIcon = is_string($iconParam) && $iconParam !== ''
+            ? WidgetIcon::tryFrom($iconParam)
             : null;
 
         $context = is_string($urlParam) && $urlParam !== ''
@@ -75,6 +81,9 @@ final class WidgetController
                     : null,
                 'position' => $appearance->resolvedPosition($defaultPosition)->value,
                 'theme' => $appearance->resolvedTheme($defaultTheme)->value,
+                'bannerIcon' => $appearance->resolvedIcon(
+                    $activeSurvey->getIcon() ?? $defaultIcon ?? WidgetIcon::fromConfig()
+                ),
                 'inlineStyle' => $appearance->toInlineStyle(),
             ])
             ->header('Cache-Control', 'no-store, private');
