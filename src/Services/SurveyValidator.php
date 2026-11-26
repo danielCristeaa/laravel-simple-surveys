@@ -23,9 +23,13 @@ final class SurveyValidator
      */
     public function validate(Survey $survey, array $input): array
     {
+        /** @var array<string, mixed> $rawInputAnswers */
+        $rawInputAnswers = is_array($input['answers'] ?? null) ? $input['answers'] : [];
+        $visibility = $this->resolveVisibility($survey, $rawInputAnswers);
+
         $validator = Validator::make(
             $input,
-            $this->rulesFor($survey),
+            $this->rulesForVisibility($survey, $visibility),
             [],
             $this->attributesFor($survey),
         );
@@ -33,22 +37,63 @@ final class SurveyValidator
         /** @var array<string, mixed> $validated */
         $validated = $validator->validate();
 
-        /** @var array<string, mixed> $rawAnswers */
-        $rawAnswers = is_array($validated['answers'] ?? null) ? $validated['answers'] : [];
+        /** @var array<string, mixed> $validatedAnswers */
+        $validatedAnswers = is_array($validated['answers'] ?? null) ? $validated['answers'] : [];
 
-        return $this->normalizeAnswers($survey, $rawAnswers);
+        return $this->normalizeAnswers($survey, $validatedAnswers, $visibility);
     }
 
     /**
+     * @param  array<string, mixed>|null  $rawAnswers
      * @return array<string, array<int, mixed>>
      */
-    public function rulesFor(Survey $survey): array
+    public function rulesFor(Survey $survey, ?array $rawAnswers = null): array
+    {
+        $visibility = $rawAnswers !== null
+            ? $this->resolveVisibility($survey, $rawAnswers)
+            : null;
+
+        return $this->rulesForVisibility($survey, $visibility);
+    }
+
+    /**
+     * Determine which questions are visible given a raw answers map.
+     *
+     * @param  array<string, mixed>  $rawAnswers
+     * @return array<string, bool>
+     */
+    public function resolveVisibility(Survey $survey, array $rawAnswers): array
+    {
+        $preNormalized = $this->normalizeAnswers($survey, $rawAnswers);
+
+        /** @var array<string, bool> $visibility */
+        $visibility = [];
+
+        /** @var array<string, true> $visiting */
+        $visiting = [];
+
+        foreach ($survey->getQuestions() as $question) {
+            $this->isQuestionVisible($survey, $question, $preNormalized, $visibility, $visiting);
+        }
+
+        return $visibility;
+    }
+
+    /**
+     * @param  array<string, bool>|null  $visibility
+     * @return array<string, array<int, mixed>>
+     */
+    private function rulesForVisibility(Survey $survey, ?array $visibility): array
     {
         $rules = [
             'answers' => ['present', 'array'],
         ];
 
         foreach ($survey->getQuestions() as $question) {
+            if ($visibility !== null && ($visibility[$question->key()] ?? true) === false) {
+                continue;
+            }
+
             $field = 'answers.'.$question->key();
             $rules[$field] = $this->rulesForQuestion($question);
 
@@ -143,14 +188,21 @@ final class SurveyValidator
 
     /**
      * @param  array<string, mixed>  $rawAnswers
+     * @param  array<string, bool>|null  $visibility
      * @return array<string, mixed>
      */
-    private function normalizeAnswers(Survey $survey, array $rawAnswers): array
+    private function normalizeAnswers(Survey $survey, array $rawAnswers, ?array $visibility = null): array
     {
         $normalized = [];
 
         foreach ($survey->getQuestions() as $question) {
             $key = $question->key();
+
+            if ($visibility !== null && ($visibility[$key] ?? true) === false) {
+                $normalized[$key] = null;
+
+                continue;
+            }
 
             if (! array_key_exists($key, $rawAnswers) || $rawAnswers[$key] === null || $rawAnswers[$key] === '') {
                 $normalized[$key] = null;
@@ -161,7 +213,7 @@ final class SurveyValidator
             $value = $rawAnswers[$key];
 
             $normalized[$key] = match ($question->type()) {
-                QuestionType::Rating => is_numeric($value) ? (int) $value : null,
+                QuestionType::Rating => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int) $value : null,
                 QuestionType::Number => $this->normalizeNumber($value),
                 QuestionType::Boolean => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 QuestionType::Checkbox => is_array($value) ? array_values($value) : [],
@@ -172,9 +224,65 @@ final class SurveyValidator
         return $normalized;
     }
 
+    /**
+     * @param  array<string, mixed>  $normalizedAnswers
+     * @param  array<string, bool>  $visibility
+     * @param  array<string, true>  $visiting
+     */
+    private function isQuestionVisible(
+        Survey $survey,
+        Question $question,
+        array $normalizedAnswers,
+        array &$visibility,
+        array &$visiting,
+    ): bool {
+        $key = $question->key();
+
+        if (array_key_exists($key, $visibility)) {
+            return $visibility[$key];
+        }
+
+        if (! $question->isConditional()) {
+            $visibility[$key] = true;
+
+            return true;
+        }
+
+        if (isset($visiting[$key])) {
+            return false;
+        }
+
+        $visiting[$key] = true;
+        $visible = true;
+
+        foreach ($question->getConditions() as $condition) {
+            $target = $survey->question($condition->questionKey);
+
+            if ($target === null) {
+                $visible = false;
+                break;
+            }
+
+            if (! $this->isQuestionVisible($survey, $target, $normalizedAnswers, $visibility, $visiting)) {
+                $visible = false;
+                break;
+            }
+
+            if (! $condition->matches($normalizedAnswers[$target->key()] ?? null)) {
+                $visible = false;
+                break;
+            }
+        }
+
+        unset($visiting[$key]);
+        $visibility[$key] = $visible;
+
+        return $visible;
+    }
+
     private function normalizeNumber(mixed $value): int|float|null
     {
-        if (! is_numeric($value)) {
+        if (is_bool($value) || ! is_numeric($value)) {
             return null;
         }
 

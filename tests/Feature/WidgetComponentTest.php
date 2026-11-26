@@ -179,3 +179,32 @@ it('omits impression tracking attribute when impression tracking is disabled', f
         ->assertSee('Quiet Survey')
         ->assertDontSee('data-lss-impression-url');
 });
+
+it('renders conditional questions initially hidden with condition metadata for client-side toggling', function (): void {
+    $user = User::create(['name' => 'Chloe', 'email' => 'chloe@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('conditional-widget')
+            ->title('Conditional Widget')
+            ->questions([
+                Question::rating('score', 'Score')->scale(1, 5)->required(),
+                Question::textarea('reason', 'What went wrong?')
+                    ->when('score', '<=', 3)
+                    ->required(),
+            ])
+    );
+
+    $this->actingAs($user);
+
+    $html = Blade::render('<x-simple-surveys::widget />');
+
+    expect($html)
+        ->toContain('data-lss-field="score"')
+        ->toContain('data-lss-question-type="rating"')
+        ->toContain('class="lss-field lss-hidden"')
+        ->toContain('data-lss-field="reason"')
+        ->toContain('data-lss-question-type="textarea"')
+        ->toContain('data-lss-conditions="[{&quot;question&quot;:&quot;score&quot;,&quot;operator&quot;:&quot;&lt;=&quot;,&quot;value&quot;:3}]"')
+        ->toContain('aria-hidden="true"')
+        ->toContain('syncConditionalFields');
+});

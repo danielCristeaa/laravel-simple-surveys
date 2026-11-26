@@ -167,3 +167,65 @@ it('allows submission after dismissal cooldown expires and removes the dismissal
         ->and(SurveyResponse::query()->forSurvey('reprompt-submit')->forRespondent($user)->count())->toBe(1)
         ->and(SimpleSurveys::isEligible('reprompt-submit', $user))->toBeFalse();
 });
+
+it('handles conditional follow-up questions end-to-end on submission', function (): void {
+    $happyUser = User::create(['name' => 'Happy', 'email' => 'happy@example.com']);
+    $unhappyUser = User::create(['name' => 'Unhappy', 'email' => 'unhappy@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('csat-conditional')->questions([
+            Question::rating('score', 'How was your experience?')->scale(1, 5)->required(),
+            Question::textarea('low_reason', 'What could we improve?')
+                ->when('score', '<=', 3)
+                ->required(),
+        ])
+    );
+
+    // High score skips required follow-up and discards any stale hidden text
+    $this->actingAs($happyUser)
+        ->postJson(route('simple-surveys.responses.store', 'csat-conditional'), [
+            'answers' => [
+                'score' => 5,
+                'low_reason' => 'Leftover text from earlier click',
+            ],
+        ])
+        ->assertCreated();
+
+    $happyResponse = SurveyResponse::query()
+        ->forSurvey('csat-conditional')
+        ->forRespondent($happyUser)
+        ->with('answers.question')
+        ->firstOrFail();
+
+    expect($happyResponse->answerFor('score'))->toBe(5)
+        ->and($happyResponse->answerFor('low_reason'))->toBeNull();
+
+    // Low score enforces required follow-up
+    $this->actingAs($unhappyUser)
+        ->postJson(route('simple-surveys.responses.store', 'csat-conditional'), [
+            'answers' => [
+                'score' => 2,
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['answers.low_reason']);
+
+    // Low score with follow-up filled succeeds and persists both answers
+    $this->actingAs($unhappyUser)
+        ->postJson(route('simple-surveys.responses.store', 'csat-conditional'), [
+            'answers' => [
+                'score' => 2,
+                'low_reason' => 'Checkout took too long',
+            ],
+        ])
+        ->assertCreated();
+
+    $unhappyResponse = SurveyResponse::query()
+        ->forSurvey('csat-conditional')
+        ->forRespondent($unhappyUser)
+        ->with('answers.question')
+        ->firstOrFail();
+
+    expect($unhappyResponse->answerFor('score'))->toBe(2)
+        ->and($unhappyResponse->answerFor('low_reason'))->toBe('Checkout took too long');
+});

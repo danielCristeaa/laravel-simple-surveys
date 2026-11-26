@@ -166,3 +166,36 @@ it('configures banner icon fluently and validates invalid inputs', function (): 
     expect(fn () => Survey::make('invalid-icon')->icon('https://evil.test/icon.svg'))
         ->toThrow(InvalidArgumentException::class);
 });
+
+it('validates conditional question references and detects circular dependencies', function (): void {
+    $valid = Survey::make('valid-conditional')->questions([
+        Question::rating('score', 'Score')->required(),
+        Question::radio('category', 'Category')
+            ->options(['ux' => 'UX', 'other' => 'Other'])
+            ->when('score', '<=', 3)
+            ->required(),
+        Question::text('other_detail', 'Please specify')
+            ->when('category', 'other')
+            ->required(),
+    ]);
+
+    expect($valid->getQuestions())->toHaveCount(3);
+
+    // Unknown referenced question key
+    expect(fn () => Survey::make('unknown-ref')->questions([
+        Question::text('reason', 'Reason')->when('nonexistent', 'yes'),
+    ]))->toThrow(InvalidArgumentException::class, 'unknown condition question [nonexistent]');
+
+    // Direct 2-node cycle
+    expect(fn () => Survey::make('two-cycle')->questions([
+        Question::text('a', 'A')->when('b', 'yes'),
+        Question::text('b', 'B')->when('a', 'yes'),
+    ]))->toThrow(InvalidArgumentException::class, 'Circular question condition');
+
+    // 3-node cycle
+    expect(fn () => Survey::make('three-cycle')->questions([
+        Question::text('a', 'A')->when('c', 'yes'),
+        Question::text('b', 'B')->when('a', 'yes'),
+        Question::text('c', 'C')->when('b', 'yes'),
+    ]))->toThrow(InvalidArgumentException::class, 'Circular question condition');
+});

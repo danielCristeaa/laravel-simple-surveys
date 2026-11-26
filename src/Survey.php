@@ -373,6 +373,8 @@ final class Survey
             $this->addQuestion($question);
         }
 
+        $this->validateQuestionConditions();
+
         return $this;
     }
 
@@ -383,6 +385,7 @@ final class Survey
         }
 
         $this->questions[$question->key()] = $question;
+        $this->assertNoCircularConditions();
 
         return $this;
     }
@@ -770,5 +773,66 @@ final class Survey
         }
 
         return CarbonImmutable::parse($date);
+    }
+
+    private function validateQuestionConditions(): void
+    {
+        foreach ($this->questions as $question) {
+            foreach ($question->getConditions() as $condition) {
+                if (! array_key_exists($condition->questionKey, $this->questions)) {
+                    throw new InvalidArgumentException(
+                        "Question [{$question->key()}] references unknown condition question [{$condition->questionKey}] in survey [{$this->key}].",
+                    );
+                }
+            }
+        }
+
+        $this->assertNoCircularConditions();
+    }
+
+    private function assertNoCircularConditions(): void
+    {
+        /** @var array<string, int> $state 0 = unvisited, 1 = visiting, 2 = visited */
+        $state = [];
+
+        foreach ($this->questions as $key => $question) {
+            if (($state[$key] ?? 0) === 0) {
+                $this->visitConditionGraph($key, $state);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, int>  $state
+     */
+    private function visitConditionGraph(string $key, array &$state): void
+    {
+        $state[$key] = 1;
+
+        $question = $this->questions[$key] ?? null;
+
+        if ($question !== null) {
+            foreach ($question->getConditions() as $condition) {
+                $targetKey = $condition->questionKey;
+
+                if (! array_key_exists($targetKey, $this->questions)) {
+                    continue;
+                }
+
+                $targetState = $state[$targetKey] ?? 0;
+
+                if ($targetState === 1) {
+                    throw new InvalidArgumentException(
+                        "Circular question condition detected involving [{$targetKey}] in survey [{$this->key}].",
+                    );
+                }
+
+                if ($targetState === 0) {
+                    $this->visitConditionGraph($targetKey, $state);
+                }
+            }
+        }
+
+        $state[$key] = 2;
     }
 }

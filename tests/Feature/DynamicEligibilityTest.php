@@ -83,7 +83,9 @@ it('returns serialized survey json or null on the eligible endpoint', function (
             ->target(fn (Builder $q) => $q->where('plan', 'pro'))
             ->questions([
                 Question::rating('score', 'Score')->scale(1, 5)->required(),
-                Question::select('source', 'Source')->options(['google' => 'Google', 'friend' => 'Friend']),
+                Question::select('source', 'Source')
+                    ->options(['google' => 'Google', 'friend' => 'Friend'])
+                    ->when('score', '<=', 3),
             ])
     );
 
@@ -127,6 +129,7 @@ it('returns serialized survey json or null on the eligible endpoint', function (
                         'required' => true,
                         'min' => 1,
                         'max' => 5,
+                        'conditions' => [],
                     ],
                     [
                         'key' => 'source',
@@ -136,6 +139,13 @@ it('returns serialized survey json or null on the eligible endpoint', function (
                         'options' => [
                             'google' => 'Google',
                             'friend' => 'Friend',
+                        ],
+                        'conditions' => [
+                            [
+                                'question' => 'score',
+                                'operator' => '<=',
+                                'value' => 3,
+                            ],
                         ],
                     ],
                 ],

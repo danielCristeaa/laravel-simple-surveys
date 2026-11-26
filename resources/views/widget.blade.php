@@ -77,9 +77,21 @@
                     @php
                         $inputId = $widgetId . '-' . $question->key();
                         $fieldName = 'answers[' . $question->key() . ']';
+                        $questionConditions = array_map(
+                            static fn (\DanielCristea\SimpleSurveys\QuestionCondition $condition): array => $condition->toArray(),
+                            $question->getConditions(),
+                        );
                     @endphp
 
-                    <div class="lss-field" data-lss-field="{{ $question->key() }}">
+                    <div
+                        class="lss-field{{ $questionConditions !== [] ? ' lss-hidden' : '' }}"
+                        data-lss-field="{{ $question->key() }}"
+                        data-lss-question-type="{{ $question->type()->value }}"
+                        @if ($questionConditions !== [])
+                            data-lss-conditions="{{ json_encode($questionConditions, JSON_THROW_ON_ERROR) }}"
+                            aria-hidden="true"
+                        @endif
+                    >
                         <label class="lss-label" @if (in_array($question->type(), [QuestionType::Text, QuestionType::Textarea, QuestionType::Number, QuestionType::Select], true)) for="{{ $inputId }}" @endif>
                             {{ $question->label() }}
                             @if ($question->isRequired())
@@ -474,6 +486,231 @@
             });
 
             if (form) {
+                var fieldMap = {};
+                var conditionMap = {};
+                var hasConditionalFields = false;
+
+                form.querySelectorAll('[data-lss-field]').forEach(function (fieldEl) {
+                    var key = fieldEl.dataset.lssField;
+                    if (!key) {
+                        return;
+                    }
+                    fieldMap[key] = fieldEl;
+                    if (fieldEl.dataset.lssConditions) {
+                        try {
+                            var parsed = JSON.parse(fieldEl.dataset.lssConditions);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                conditionMap[key] = parsed;
+                                hasConditionalFields = true;
+                            }
+                        } catch (e) {}
+                    }
+                });
+
+                function isUnansweredValue(val) {
+                    return val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0);
+                }
+
+                function isNumericScalar(val) {
+                    if (typeof val === 'number') {
+                        return Number.isFinite(val);
+                    }
+                    if (typeof val === 'string' && val.trim() !== '') {
+                        return Number.isFinite(Number(val));
+                    }
+                    return false;
+                }
+
+                function toBooleanValue(val) {
+                    if (typeof val === 'boolean') {
+                        return val;
+                    }
+                    if (typeof val === 'number') {
+                        if (val === 1) return true;
+                        if (val === 0) return false;
+                        return null;
+                    }
+                    if (typeof val === 'string') {
+                        var lower = val.trim().toLowerCase();
+                        if (lower === '1' || lower === 'true' || lower === 'yes' || lower === 'on') return true;
+                        if (lower === '0' || lower === 'false' || lower === 'no' || lower === 'off') return false;
+                    }
+                    return null;
+                }
+
+                function valuesMatch(actual, expected) {
+                    if (typeof actual === 'boolean' || typeof expected === 'boolean') {
+                        var actualBool = toBooleanValue(actual);
+                        var expectedBool = toBooleanValue(expected);
+                        return actualBool !== null && expectedBool !== null && actualBool === expectedBool;
+                    }
+                    if ((typeof actual === 'number' || typeof expected === 'number') && isNumericScalar(actual) && isNumericScalar(expected)) {
+                        return Number(actual) === Number(expected);
+                    }
+                    return String(actual) === String(expected);
+                }
+
+                function matchesAnyInList(actual, list) {
+                    if (Array.isArray(actual)) {
+                        return actual.some(function (actualItem) {
+                            return list.some(function (expectedItem) {
+                                return valuesMatch(actualItem, expectedItem);
+                            });
+                        });
+                    }
+                    return list.some(function (expectedItem) {
+                        return valuesMatch(actual, expectedItem);
+                    });
+                }
+
+                function answerContains(actual, expected) {
+                    if (Array.isArray(actual)) {
+                        return actual.some(function (item) {
+                            return valuesMatch(item, expected);
+                        });
+                    }
+                    if (typeof actual === 'string' && typeof expected === 'string') {
+                        return expected !== '' && actual.indexOf(expected) !== -1;
+                    }
+                    return false;
+                }
+
+                function matchesCondition(answer, operator, expected) {
+                    if (isUnansweredValue(answer)) {
+                        return false;
+                    }
+                    switch (operator) {
+                        case '=':
+                            return !Array.isArray(answer) && !Array.isArray(expected) && valuesMatch(answer, expected);
+                        case '!=':
+                            return !Array.isArray(answer) && !Array.isArray(expected) && !valuesMatch(answer, expected);
+                        case '>':
+                            return isNumericScalar(answer) && isNumericScalar(expected) && Number(answer) > Number(expected);
+                        case '>=':
+                            return isNumericScalar(answer) && isNumericScalar(expected) && Number(answer) >= Number(expected);
+                        case '<':
+                            return isNumericScalar(answer) && isNumericScalar(expected) && Number(answer) < Number(expected);
+                        case '<=':
+                            return isNumericScalar(answer) && isNumericScalar(expected) && Number(answer) <= Number(expected);
+                        case 'in':
+                            return Array.isArray(expected) && matchesAnyInList(answer, expected);
+                        case 'not_in':
+                            return Array.isArray(expected) && !matchesAnyInList(answer, expected);
+                        case 'contains':
+                            return !Array.isArray(expected) && answerContains(answer, expected);
+                        case 'not_contains':
+                            return !Array.isArray(expected) && !answerContains(answer, expected);
+                        default:
+                            return false;
+                    }
+                }
+
+                function readFieldValue(fieldEl) {
+                    var type = fieldEl.dataset.lssQuestionType || 'text';
+                    if (type === 'checkbox') {
+                        var selected = [];
+                        fieldEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (input) {
+                            selected.push(input.value);
+                        });
+                        return selected;
+                    }
+                    if (type === 'radio' || type === 'rating' || type === 'boolean') {
+                        var checked = fieldEl.querySelector('input[type="radio"]:checked');
+                        if (!checked) {
+                            return null;
+                        }
+                        if (type === 'boolean') {
+                            return checked.value === '1' ? true : (checked.value === '0' ? false : null);
+                        }
+                        if (type === 'rating') {
+                            var score = Number(checked.value);
+                            return Number.isInteger(score) ? score : null;
+                        }
+                        return checked.value;
+                    }
+                    if (type === 'select') {
+                        var select = fieldEl.querySelector('select');
+                        return select && select.value !== '' ? select.value : null;
+                    }
+                    if (type === 'number') {
+                        var numInput = fieldEl.querySelector('input');
+                        if (!numInput || numInput.value === '') {
+                            return null;
+                        }
+                        var parsedNum = Number(numInput.value);
+                        return Number.isFinite(parsedNum) ? parsedNum : null;
+                    }
+                    var textInput = fieldEl.querySelector('input, textarea');
+                    return textInput && textInput.value !== '' ? textInput.value : null;
+                }
+
+                function syncConditionalFields() {
+                    if (!hasConditionalFields) {
+                        return;
+                    }
+                    var memo = {};
+                    var visiting = {};
+
+                    function isVisible(key) {
+                        if (Object.prototype.hasOwnProperty.call(memo, key)) {
+                            return memo[key];
+                        }
+                        var conditions = conditionMap[key];
+                        if (!conditions || conditions.length === 0) {
+                            memo[key] = true;
+                            return true;
+                        }
+                        if (visiting[key]) {
+                            return false;
+                        }
+                        visiting[key] = true;
+                        var visible = true;
+                        for (var i = 0; i < conditions.length; i++) {
+                            var cond = conditions[i];
+                            var targetField = fieldMap[cond.question];
+                            if (!targetField || !isVisible(cond.question)) {
+                                visible = false;
+                                break;
+                            }
+                            if (!matchesCondition(readFieldValue(targetField), cond.operator, cond.value)) {
+                                visible = false;
+                                break;
+                            }
+                        }
+                        delete visiting[key];
+                        memo[key] = visible;
+                        return visible;
+                    }
+
+                    Object.keys(conditionMap).forEach(function (key) {
+                        var fieldEl = fieldMap[key];
+                        if (!fieldEl) {
+                            return;
+                        }
+                        var visible = isVisible(key);
+                        fieldEl.classList.toggle('lss-hidden', !visible);
+                        if (visible) {
+                            fieldEl.removeAttribute('aria-hidden');
+                        } else {
+                            fieldEl.setAttribute('aria-hidden', 'true');
+                            var errorEl = fieldEl.querySelector('[data-lss-error]');
+                            if (errorEl) {
+                                errorEl.textContent = '';
+                                errorEl.classList.add('lss-hidden');
+                            }
+                        }
+                        fieldEl.querySelectorAll('input, select, textarea').forEach(function (control) {
+                            control.disabled = !visible;
+                        });
+                    });
+                }
+
+                if (hasConditionalFields) {
+                    syncConditionalFields();
+                    form.addEventListener('input', syncConditionalFields);
+                    form.addEventListener('change', syncConditionalFields);
+                }
+
                 form.addEventListener('submit', function (event) {
                     event.preventDefault();
                     clearErrors();

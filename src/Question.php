@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DanielCristea\SimpleSurveys;
 
+use DanielCristea\SimpleSurveys\Enums\QuestionConditionOperator;
 use DanielCristea\SimpleSurveys\Enums\QuestionType;
 use InvalidArgumentException;
 
@@ -28,6 +29,9 @@ final class Question
 
     /** @var array<int, mixed> */
     private array $rules = [];
+
+    /** @var array<int, QuestionCondition> */
+    private array $conditions = [];
 
     private function __construct(
         private readonly string $key,
@@ -184,6 +188,66 @@ final class Question
         return $this;
     }
 
+    /**
+     * Show this question only when another question's answer satisfies the condition.
+     *
+     * Supports both 2-argument equality shorthand (`when('source', 'other')`) and
+     * 3-argument operator comparisons (`when('score', '<=', 3)`). Multiple chained
+     * `when()` calls are combined with logical AND.
+     */
+    public function when(string $questionKey, mixed $operatorOrValue, mixed $value = null): self
+    {
+        if (func_num_args() === 2) {
+            $operator = QuestionConditionOperator::Equals;
+            $expected = $operatorOrValue;
+        } else {
+            if (! $operatorOrValue instanceof QuestionConditionOperator && ! is_string($operatorOrValue)) {
+                throw new InvalidArgumentException('Condition operator must be a string or QuestionConditionOperator.');
+            }
+
+            $operator = $operatorOrValue;
+            $expected = $value;
+        }
+
+        return $this->addCondition(new QuestionCondition($questionKey, $operator, $expected));
+    }
+
+    /**
+     * Show this question when another question's answer matches any value in the given list.
+     *
+     * @param  array<int, string|int|float|bool>  $values
+     */
+    public function whenIn(string $questionKey, array $values): self
+    {
+        return $this->addCondition(new QuestionCondition($questionKey, QuestionConditionOperator::In, $values));
+    }
+
+    /**
+     * Show this question when another question's answer is not in the given list.
+     *
+     * @param  array<int, string|int|float|bool>  $values
+     */
+    public function whenNotIn(string $questionKey, array $values): self
+    {
+        return $this->addCondition(new QuestionCondition($questionKey, QuestionConditionOperator::NotIn, $values));
+    }
+
+    /**
+     * Show this question when another question's answer contains the given value.
+     */
+    public function whenContains(string $questionKey, string|int|float|bool $value): self
+    {
+        return $this->addCondition(new QuestionCondition($questionKey, QuestionConditionOperator::Contains, $value));
+    }
+
+    /**
+     * Show this question when another question's answer does not contain the given value.
+     */
+    public function whenNotContains(string $questionKey, string|int|float|bool $value): self
+    {
+        return $this->addCondition(new QuestionCondition($questionKey, QuestionConditionOperator::NotContains, $value));
+    }
+
     public function key(): string
     {
         return $this->key;
@@ -248,5 +312,29 @@ final class Question
     public function getRules(): array
     {
         return $this->rules;
+    }
+
+    /**
+     * @return array<int, QuestionCondition>
+     */
+    public function getConditions(): array
+    {
+        return $this->conditions;
+    }
+
+    public function isConditional(): bool
+    {
+        return $this->conditions !== [];
+    }
+
+    private function addCondition(QuestionCondition $condition): self
+    {
+        if ($condition->questionKey === $this->key) {
+            throw new InvalidArgumentException("Question [{$this->key}] cannot depend on itself.");
+        }
+
+        $this->conditions[] = $condition;
+
+        return $this;
     }
 }

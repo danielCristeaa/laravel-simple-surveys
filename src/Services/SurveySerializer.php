@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Services;
 
 use DanielCristea\SimpleSurveys\Question;
+use DanielCristea\SimpleSurveys\QuestionCondition;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\SurveyAppearance;
 use DanielCristea\SimpleSurveys\WidgetIcon;
@@ -39,7 +40,8 @@ final class SurveySerializer
      *         min: int|float|null,
      *         max: int|float|null,
      *         step: int|float|null,
-     *         max_length: int|null
+     *         max_length: int|null,
+     *         conditions: array<int, array{question: string, operator: string, value: string|int|float|bool|array<int, string|int|float|bool>}>
      *     }>
      * }
      */
@@ -85,7 +87,8 @@ final class SurveySerializer
      *     min: int|float|null,
      *     max: int|float|null,
      *     step: int|float|null,
-     *     max_length: int|null
+     *     max_length: int|null,
+     *     conditions: array<int, array{question: string, operator: string, value: string|int|float|bool|array<int, string|int|float|bool>}>
      * }
      */
     private function serializeQuestion(Question $question): array
@@ -102,6 +105,10 @@ final class SurveySerializer
             'max' => $question->getMax(),
             'step' => $question->getStep(),
             'max_length' => $question->getMaxLength(),
+            'conditions' => array_map(
+                static fn (QuestionCondition $condition): array => $condition->toArray(),
+                $question->getConditions(),
+            ),
         ];
     }
 }

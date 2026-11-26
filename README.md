@@ -8,7 +8,7 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 - **Drop-in Blade widget:** Mount `<x-simple-surveys::widget />` once in your layout — zero CSS/JS conflicts, light/dark/auto presets, 5 screen placements (including centered modal), and zero build steps required.
 - **Flexible appearance customization:** Style all surveys globally or target individual surveys in your own CSS (`php artisan vendor:publish --tag="simple-surveys-styles"`), or fine-tune any survey visually with a live preview in the Admin Dashboard **Appearance** tab.
 - **Eloquent audience targeting:** Target authenticated users with real Eloquent queries (`where`, `whereHas`, scopes) or direct user predicates.
-- **8 built-in input types:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`.
+- **8 built-in input types & conditional follow-ups:** `text`, `textarea`, `number`, `select`, `radio`, `checkbox`, `rating`, and `boolean`, with live client-side and server-validated conditional visibility (`->when(...)`).
 - **Normalized 7-table schema:** Stores surveys, questions, responses, typed answers, dismissals, opens, and impressions cleanly with native SQL analytics.
 - **Protected Admin Results Dashboard:** View running, scheduled, closed, and archived surveys, inspect funnel metrics (seen, opened, answered, abandoned, dismissed, response rate, and completion rate) and visual breakdowns, end/re-open/reset surveys, and export CSVs.
 - **Octane-safe & strictly typed:** PHP 8.2+, Laravel 11.x, 12.x & 13.x, PHPStan Level 8+.
@@ -114,6 +114,40 @@ Then register the class:
 ```php
 SimpleSurveys::register(OnboardingFeedbackSurvey::class);
 ```
+
+#### Conditional Follow-Up Questions
+
+Show or hide follow-up questions dynamically based on earlier answers using `->when(...)` (and helpers `whenIn()`, `whenNotIn()`, `whenContains()`, `whenNotContains()`):
+
+```php
+Survey::make('csat-survey')
+    ->title('Quick Feedback')
+    ->questions([
+        Question::rating('experience', 'How would you rate your experience?')
+            ->scale(1, 5)
+            ->required(),
+
+        // Only shown (and required) when experience <= 3
+        Question::textarea('low_score_reason', 'What could we have done better?')
+            ->when('experience', '<=', 3)
+            ->required(),
+
+        Question::radio('source', 'How did you hear about us?')
+            ->options(['google' => 'Google', 'friend' => 'Friend', 'other' => 'Other']),
+
+        // 2-argument shorthand for equality ('=')
+        Question::text('other_source', 'Please specify')
+            ->when('source', 'other')
+            ->required(),
+    ]);
+```
+
+Supported operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `not_in`, `contains`, and `not_contains`.
+
+- Chaining multiple `->when(...)` calls combines them with logical **AND**.
+- Conditional questions stay hidden until the referenced question is answered and matches; chained dependencies (e.g. `A → B → C`) cascade automatically.
+- Server-side validation skips hidden questions (even if marked `->required()`) and discards stale answers if a respondent changes an earlier answer before submitting.
+- The `GET /simple-surveys/eligible` endpoint includes each question's `conditions` array for custom SPA frontends.
 
 ### 2. Render the Customer Widget
 
