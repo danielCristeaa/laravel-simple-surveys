@@ -13,27 +13,14 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Translation\FileLoader;
 
 beforeEach(function (): void {
-    $this->tempLangPath = sys_get_temp_dir().'/lss-feature-i18n-'.bin2hex(random_bytes(6));
-    File::ensureDirectoryExists($this->tempLangPath);
-
-    app()->useLangPath($this->tempLangPath);
-
-    /** @var FileLoader $loader */
-    $loader = app('translation.loader');
-    $loader->addPath($this->tempLangPath);
-    app('translator')->setLoaded([]);
+    $this->tempLangPath = $this->useIsolatedLangPath();
     app()->setLocale('en');
 });
 
 afterEach(function (): void {
     app()->setLocale('en');
-
-    if (is_string($this->tempLangPath ?? null) && File::isDirectory($this->tempLangPath)) {
-        File::deleteDirectory($this->tempLangPath);
-    }
 });
 
 it('registers publishable widget translations under simple-surveys-translations tag', function (): void {

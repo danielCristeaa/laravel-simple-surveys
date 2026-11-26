@@ -6,24 +6,9 @@ use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
 use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Support\Facades\File;
-use Illuminate\Translation\FileLoader;
 
 beforeEach(function (): void {
-    $this->tempLangPath = sys_get_temp_dir().'/lss-unit-i18n-'.bin2hex(random_bytes(6));
-    File::ensureDirectoryExists($this->tempLangPath);
-
-    app()->useLangPath($this->tempLangPath);
-
-    /** @var FileLoader $loader */
-    $loader = app('translation.loader');
-    $loader->addPath($this->tempLangPath);
-    app('translator')->setLoaded([]);
-});
-
-afterEach(function (): void {
-    if (is_string($this->tempLangPath ?? null) && File::isDirectory($this->tempLangPath)) {
-        File::deleteDirectory($this->tempLangPath);
-    }
+    $this->tempLangPath = $this->useIsolatedLangPath();
 });
 
 it('resolves translations from lang/{locale}/simple-surveys.php with regional and fallback resolution', function (): void {
