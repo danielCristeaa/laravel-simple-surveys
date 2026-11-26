@@ -80,4 +80,67 @@ See [Appearance & Styling](styling.md) for full details and how to disable the v
 
 ---
 
+## Programmatic Results, Lifecycle & Export API
+
+Building a custom admin view in **Filament**, **Nova**, **Inertia**, **Livewire**, or a decoupled **React/Vue SPA**? You can query the exact same aggregated metrics, lifecycle controls, and CSV stream directly from PHP via the `SimpleSurveys` facade:
+
+| Method | Return | Description |
+| :--- | :--- | :--- |
+| `SimpleSurveys::summaries()` | `Collection` | All registered and archived surveys with funnel counts (`impressions_count`, `opens_count`, `abandoned_count`, `responses_count`, `dismissals_count`) and rates (`response_rate`, `completion_rate`). |
+| `SimpleSurveys::results($survey, int $perPage = 15)` | `?array` | Funnel summary, per-question breakdowns/stats, and paginated `SurveyResponse` rows (`null` if unknown). Accepts a `Survey` instance or survey key. |
+| `SimpleSurveys::close($survey)` | `?SurveyRecord` | Syncs if needed and marks the survey `closed` (`ends_at = now()`). |
+| `SimpleSurveys::reopen($survey)` | `?SurveyRecord` | Syncs if needed and marks the survey `active` (clears past `ends_at`). |
+| `SimpleSurveys::reset($survey)` | `bool` | Transactionally deletes all answers, responses, dismissals, opens, and impressions for the survey. |
+| `SimpleSurveys::exportCsv($survey, ?string $filename = null)` | `?StreamedResponse` | Streams the exact same UTF-8 CSV download (including `Duration (ms)`, `Locale`, and dynamic tracking context columns). |
+
+### Example: Exposing Results in a Custom SPA / Sanctum Controller
+
+```php
+use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware(['auth:sanctum'])->prefix('api/admin/surveys')->group(function () {
+    Route::get('/', function () {
+        Gate::authorize('viewSimpleSurveys');
+
+        return response()->json(SimpleSurveys::summaries());
+    });
+
+    Route::get('/{key}', function (string $key) {
+        Gate::authorize('viewSimpleSurveys');
+
+        $results = SimpleSurveys::results($key);
+        abort_if($results === null, 404);
+
+        return response()->json($results);
+    });
+
+    Route::get('/{key}/export', function (string $key) {
+        Gate::authorize('viewSimpleSurveys');
+
+        return SimpleSurveys::exportCsv($key) ?? abort(404);
+    });
+});
+```
+
+---
+
+## Inspecting Results from the Terminal (Artisan)
+
+Check live funnel metrics or per-question breakdowns without leaving your terminal—especially useful on API-only apps or production SSH sessions:
+
+```bash
+# Overview table of all registered & archived surveys
+php artisan simple-surveys:results
+
+# Detailed funnel + per-question breakdown for one survey
+php artisan simple-surveys:results onboarding-feedback
+
+# Machine-readable JSON output (pipe into jq or scripts)
+php artisan simple-surveys:results onboarding-feedback --json
+```
+
+---
+
 ← Previous: [Headless / API-Only Setup](headless-api.md) | Next: [Localization & Translations →](localization.md)

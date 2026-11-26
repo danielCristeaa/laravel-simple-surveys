@@ -30,6 +30,7 @@
     data-lss-dismiss-url="{{ $dismissUrl }}"
     data-lss-open-url="{{ $openUrl }}"
     @if (! empty($impressionUrl)) data-lss-impression-url="{{ $impressionUrl }}" @endif
+    @if (! empty($respondentHash)) data-lss-respondent="{{ $respondentHash }}" @endif
     data-lss-thank-you="{{ $surveyThankYouMessage }}"
 >
     <style>{!! WidgetStyles::css() !!}</style>
@@ -289,6 +290,7 @@
             var dismissUrl = root.dataset.lssDismissUrl;
             var openUrl = root.dataset.lssOpenUrl;
             var impressionUrl = root.dataset.lssImpressionUrl || '';
+            var respondentHash = root.dataset.lssRespondent || '';
             var surveyKey = root.dataset.lssSurvey || '';
             var submittingLabel = @json($translator->ui('submitting'));
             var closeTitle = @json($translator->ui('close_title'));
@@ -336,7 +338,7 @@
             }
 
             function trackImpression() {
-                var storageKey = 'lss_seen_' + surveyKey;
+                var storageKey = 'lss_seen_' + surveyKey + (respondentHash ? '_' + respondentHash : '');
                 var alreadySeen = false;
 
                 try {

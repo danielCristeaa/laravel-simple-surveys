@@ -18,7 +18,13 @@
             var nextWidget = temp.querySelector('[data-lss-widget]');
             var currentWidget = mount.querySelector('[data-lss-widget]');
 
-            if (nextWidget && currentWidget && nextWidget.id && nextWidget.id === currentWidget.id) {
+            if (
+                nextWidget &&
+                currentWidget &&
+                nextWidget.id &&
+                nextWidget.id === currentWidget.id &&
+                (nextWidget.dataset.lssRespondent || '') === (currentWidget.dataset.lssRespondent || '')
+            ) {
                 return;
             }
 

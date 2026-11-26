@@ -8,6 +8,7 @@ use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Question;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\Tests\Support\User;
+use DanielCristea\SimpleSurveys\View\Components\Widget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
@@ -207,4 +208,38 @@ it('renders conditional questions initially hidden with condition metadata for c
         ->toContain('data-lss-conditions="[{&quot;question&quot;:&quot;score&quot;,&quot;operator&quot;:&quot;&lt;=&quot;,&quot;value&quot;:3}]"')
         ->toContain('aria-hidden="true"')
         ->toContain('syncConditionalFields');
+});
+
+it('scopes widget sessionStorage impression deduping by an opaque per-respondent hash', function (): void {
+    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com']);
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+
+    SimpleSurveys::register(Survey::make('shared-tab-survey')->title('Shared Tab Survey'));
+
+    $aliceHash = Widget::hashRespondent($alice);
+    $bobHash = Widget::hashRespondent($bob);
+
+    expect($aliceHash)->toHaveLength(12)
+        ->and($bobHash)->toHaveLength(12)
+        ->and($aliceHash)->not->toBe($bobHash);
+
+    $this->actingAs($alice);
+    $aliceHtml = Blade::render('<x-simple-surveys::widget />');
+
+    $this->actingAs($bob);
+    $bobHtml = Blade::render('<x-simple-surveys::widget />');
+
+    expect($aliceHtml)
+        ->toContain('data-lss-respondent="'.$aliceHash.'"')
+        ->toContain("var storageKey = 'lss_seen_' + surveyKey + (respondentHash ? '_' + respondentHash : '');")
+        ->not->toContain('alice@example.com');
+
+    expect($bobHtml)
+        ->toContain('data-lss-respondent="'.$bobHash.'"')
+        ->not->toContain($aliceHash);
+
+    $this->actingAs($bob)
+        ->get(route('simple-surveys.widget'))
+        ->assertOk()
+        ->assertSee('data-lss-respondent="'.$bobHash.'"', false);
 });

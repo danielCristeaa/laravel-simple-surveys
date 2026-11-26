@@ -11,6 +11,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
+use DanielCristea\SimpleSurveys\View\Components\Widget;
 use DanielCristea\SimpleSurveys\WidgetIcon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
@@ -79,6 +80,7 @@ final class WidgetController
                 'impressionUrl' => config('simple-surveys.tracking.impressions', true)
                     ? route('simple-surveys.impression', $activeSurvey->key())
                     : null,
+                'respondentHash' => Widget::hashRespondent($user),
                 'position' => $appearance->resolvedPosition($defaultPosition)->value,
                 'theme' => $appearance->resolvedTheme($defaultTheme)->value,
                 'bannerIcon' => $appearance->resolvedIcon(

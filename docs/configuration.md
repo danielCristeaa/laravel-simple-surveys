@@ -92,6 +92,7 @@ php artisan vendor:publish --tag="simple-surveys-config"
 | Command | Purpose |
 | :--- | :--- |
 | `php artisan simple-surveys:sync` | Syncs all code-registered surveys and questions into the database upfront. |
+| `php artisan simple-surveys:results {key?}` | Displays a funnel summary table for all surveys or detailed per-question breakdowns for a single survey key (supports `--json`). |
 | `php artisan simple-surveys:translations` | Exports canonical survey copy and scaffolds/merges `lang/{locale}/simple-surveys.php` files (supports `--locales=`, `--source=`, `--survey=`, `--empty`, `--prune`). |
 
 ---

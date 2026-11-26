@@ -126,7 +126,7 @@ Then visit `/simple-surveys/admin` to inspect funnel metrics, question breakdown
 | [**Customer Widget & SPA Mode**](docs/widget.md) | Component attributes (`position`, `theme`, `icon`, `survey`), Inertia/Livewire `dynamic` mode, and publishing Blade views |
 | [**Appearance & Styling**](docs/styling.md) | `--lss-*` CSS custom properties, global vs per-survey overrides, style precedence, and the Admin **Appearance** tab |
 | [**Headless / API-Only Setup**](docs/headless-api.md) | Sanctum/Passport Bearer & cookie auth, CORS, JSON endpoints (`?survey=`, `?url=`), `duration_ms`, and a full React example |
-| [**Admin Results Dashboard**](docs/admin-dashboard.md) | Gate authorization, funnel metrics (seen, opened, abandoned, response/completion rates), End/Re-open/Reset controls, and CSV exports |
+| [**Admin Results Dashboard**](docs/admin-dashboard.md) | Gate authorization, funnel metrics, End/Re-open/Reset controls, CSV exports, programmatic PHP results API (`SimpleSurveys::results()`), and `simple-surveys:results` CLI |
 | [**Localization & Translations**](docs/localization.md) | Publishable widget chrome, `lang/{locale}/simple-surveys.php` scaffolding (`simple-surveys:translations`), and locale recording |
 | [**Analytics, Events & Tracking**](docs/analytics-and-tracking.md) | Browser `CustomEvent`s (GA4/PostHog/Mixpanel), tracking cookies, `resolveTrackingContext`, and Laravel lifecycle events |
 | [**Webhooks & Notifications**](docs/webhooks-and-notifications.md) | Signed lifecycle webhooks (HMAC-SHA256, queues/retries) and Mail/Slack/custom submission notifications |

@@ -28,7 +28,10 @@ Publish `config/simple-surveys.php` and configure your API guard and route setti
 
 - **Cross-origin SPAs:** Add your route prefix (e.g. `'api/simple-surveys/*'`) to `paths` in Laravel's `config/cors.php`.
 - **Page targeting:** Because Laravel does not know client-side React Router / Vue Router route names, pass the current browser path as `?url=/dashboard` to `GET /{prefix}/eligible` and use `->onPaths(...)` / `->exceptPaths(...)` in your survey definitions instead of `->onRoutes(...)`.
-- **Admin Dashboard:** `/simple-surveys/admin` is a session-authenticated Blade UI. Keep a lightweight web login for admins, or disable it with `'admin' => ['enabled' => false]`.
+- **Admin Results on API-Only Apps:** `/simple-surveys/admin` is a session-authenticated Blade UI. If your backend has no web `/login` route, you have three lightweight options:
+  1. Protect `/simple-surveys/admin` with HTTP Basic Auth (`'admin' => ['middleware' => ['web', 'auth.basic']]`) so admins can still use the built-in dashboard without building any frontend views.
+  2. Inspect funnel metrics and question breakdowns straight from the CLI with `php artisan simple-surveys:results {key?} --json`.
+  3. Disable the Blade dashboard (`'admin' => ['enabled' => false]`) and wrap the [Programmatic Results API](admin-dashboard.md#programmatic-results-lifecycle--export-api) (`SimpleSurveys::summaries()`, `results()`, `close()`, `reopen()`, `reset()`, `exportCsv()`) in your own Sanctum admin routes.
 
 ---
 

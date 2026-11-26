@@ -7,14 +7,21 @@ namespace DanielCristea\SimpleSurveys;
 use Carbon\CarbonInterface;
 use Closure;
 use DanielCristea\SimpleSurveys\Contracts\SurveyDefinition;
+use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
+use DanielCristea\SimpleSurveys\Models\SurveyResponse;
+use DanielCristea\SimpleSurveys\Services\SurveyCsvExporter;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyLifecycleManager;
 use DanielCristea\SimpleSurveys\Services\SurveyNotificationDispatcher;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class SimpleSurveys
 {
@@ -26,6 +33,9 @@ final class SimpleSurveys
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyTrackingContextResolver $trackingContext,
         private readonly SurveyNotificationDispatcher $notificationDispatcher,
+        private readonly SurveyResultsAggregator $resultsAggregator,
+        private readonly SurveyLifecycleManager $lifecycle,
+        private readonly SurveyCsvExporter $csvExporter,
     ) {}
 
     /**
@@ -109,5 +119,72 @@ final class SimpleSurveys
     public function sync(): Collection
     {
         return $this->synchronizer->syncAll();
+    }
+
+    /**
+     * @return Collection<int, array{
+     *     key: string,
+     *     title: string,
+     *     description: string|null,
+     *     status: SurveyStatus,
+     *     registered: bool,
+     *     questions_count: int,
+     *     impressions_count: int,
+     *     opens_count: int,
+     *     abandoned_count: int,
+     *     responses_count: int,
+     *     dismissals_count: int,
+     *     response_rate: float|null,
+     *     completion_rate: float|null
+     * }>
+     */
+    public function summaries(): Collection
+    {
+        return $this->resultsAggregator->summaries();
+    }
+
+    /**
+     * @return array{
+     *     key: string,
+     *     title: string,
+     *     description: string|null,
+     *     status: SurveyStatus,
+     *     registered: bool,
+     *     impressions_count: int,
+     *     opens_count: int,
+     *     abandoned_count: int,
+     *     responses_count: int,
+     *     dismissals_count: int,
+     *     response_rate: float|null,
+     *     completion_rate: float|null,
+     *     questions: array<int, array<string, mixed>>,
+     *     responses: LengthAwarePaginator<int, SurveyResponse>|null
+     * }|null
+     */
+    public function results(Survey|string $survey, int $perPage = 15): ?array
+    {
+        $surveyKey = $survey instanceof Survey ? $survey->key() : $survey;
+
+        return $this->resultsAggregator->forSurvey($surveyKey, $perPage);
+    }
+
+    public function close(Survey|string $survey): ?SurveyRecord
+    {
+        return $this->lifecycle->close($survey);
+    }
+
+    public function reopen(Survey|string $survey): ?SurveyRecord
+    {
+        return $this->lifecycle->reopen($survey);
+    }
+
+    public function reset(Survey|string $survey): bool
+    {
+        return $this->lifecycle->reset($survey);
+    }
+
+    public function exportCsv(Survey|string $survey, ?string $filename = null): ?StreamedResponse
+    {
+        return $this->csvExporter->streamDownload($survey, $filename);
     }
 }

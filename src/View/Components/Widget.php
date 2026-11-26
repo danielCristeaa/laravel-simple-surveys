@@ -12,6 +12,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\WidgetIcon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,8 @@ final class Widget extends Component
     public ?string $openUrl = null;
 
     public ?string $impressionUrl = null;
+
+    public ?string $respondentHash = null;
 
     public ?string $widgetEndpointUrl = null;
 
@@ -111,7 +114,16 @@ final class Widget extends Component
             $this->impressionUrl = config('simple-surveys.tracking.impressions', true)
                 ? route('simple-surveys.impression', $this->activeSurvey->key())
                 : null;
+            $this->respondentHash = self::hashRespondent($user);
         }
+    }
+
+    public static function hashRespondent(Authenticatable $user): string
+    {
+        $identifier = $user->getAuthIdentifier();
+        $normalizedId = is_scalar($identifier) ? (string) $identifier : '';
+
+        return substr(hash('sha256', $user::class.':'.$normalizedId), 0, 12);
     }
 
     public function shouldRender(): bool

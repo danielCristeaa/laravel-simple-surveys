@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys;
 
 use DanielCristea\SimpleSurveys\Console\Commands\ExportSurveyTranslationsCommand;
+use DanielCristea\SimpleSurveys\Console\Commands\SurveyResultsCommand;
 use DanielCristea\SimpleSurveys\Console\Commands\SyncSurveysCommand;
 use DanielCristea\SimpleSurveys\Events\SurveyDismissed;
 use DanielCristea\SimpleSurveys\Events\SurveyOpened;
@@ -12,7 +13,9 @@ use DanielCristea\SimpleSurveys\Events\SurveySeen;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyCsvExporter;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyLifecycleManager;
 use DanielCristea\SimpleSurveys\Services\SurveyNotificationDispatcher;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
@@ -47,6 +50,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 SyncSurveysCommand::class,
                 ExportSurveyTranslationsCommand::class,
+                SurveyResultsCommand::class,
             ]);
     }
 
@@ -59,6 +63,8 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyValidator::class);
         $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SurveyResultsAggregator::class);
+        $this->app->singleton(SurveyLifecycleManager::class);
+        $this->app->singleton(SurveyCsvExporter::class);
         $this->app->singleton(SurveySerializer::class);
         $this->app->singleton(SurveyTrackingContextResolver::class);
         $this->app->singleton(SurveyWebhookPayloadBuilder::class);
