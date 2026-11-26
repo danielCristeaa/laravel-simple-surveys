@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool has(string $key)
  * @method static void clear()
  * @method static void resolveTrackingContext(?Closure $callback)
+ * @method static void resolveNotifiables(?Closure $callback)
  * @method static Survey|null forUser(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null)
  * @method static Collection<int, Survey> eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null)
  * @method static bool isEligible(Survey|string $survey, ?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null)

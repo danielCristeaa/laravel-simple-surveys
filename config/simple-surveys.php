@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use DanielCristea\SimpleSurveys\Notifications\SurveySubmittedNotification;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -103,6 +105,35 @@ return [
         'timeout' => 5,
         'tries' => 3,
         'backoff' => [10, 60, 300],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Submission Notifications
+    |--------------------------------------------------------------------------
+    |
+    | Optionally dispatch built-in Laravel notifications when a new survey
+    | response is submitted. Completely disabled by default.
+    |
+    | "channels" lists the notification channels to use (e.g. ['mail'],
+    | ['mail', 'slack'], or any custom Laravel notification channel).
+    |
+    | "routes" maps channels to on-demand destinations, for example:
+    |   'mail' => 'team@example.com' (or ['pm@example.com', 'ops@example.com']),
+    |   'slack' => env('SIMPLE_SURVEYS_SLACK_WEBHOOK_URL'),
+    |
+    */
+    'notifications' => [
+        'enabled' => false,
+        'notification' => SurveySubmittedNotification::class,
+        'channels' => ['mail'],
+        'routes' => [
+            'mail' => null,
+            'slack' => null,
+        ],
+        'queued' => true,
+        'queue' => null,
+        'slack_timeout' => 5,
     ],
 
     /*

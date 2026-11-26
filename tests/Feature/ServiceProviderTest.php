@@ -24,6 +24,9 @@ it('loads default package configuration', function (): void {
         ->and(config('simple-surveys.tracking.cookies'))->toBe([])
         ->and(config('simple-surveys.webhooks.enabled'))->toBeFalse()
         ->and(config('simple-surveys.webhooks.queued'))->toBeTrue()
+        ->and(config('simple-surveys.notifications.enabled'))->toBeFalse()
+        ->and(config('simple-surveys.notifications.channels'))->toBe(['mail'])
+        ->and(config('simple-surveys.notifications.queued'))->toBeTrue()
         ->and(config('simple-surveys.admin.enabled'))->toBeTrue()
         ->and(config('simple-surveys.admin.gate'))->toBe('viewSimpleSurveys')
         ->and(config('simple-surveys.admin.appearance_editor'))->toBeTrue();

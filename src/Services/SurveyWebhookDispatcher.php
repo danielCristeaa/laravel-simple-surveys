@@ -10,6 +10,7 @@ use DanielCristea\SimpleSurveys\Events\SurveySeen;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Jobs\DispatchSurveyWebhookJob;
 use DanielCristea\SimpleSurveys\Survey;
+use Throwable;
 
 final class SurveyWebhookDispatcher
 {
@@ -19,6 +20,10 @@ final class SurveyWebhookDispatcher
 
     public function handle(SurveySeen|SurveyOpened|SurveyDismissed|SurveySubmitted $event): void
     {
+        if ($event->survey->hasWebhooksDisabled()) {
+            return;
+        }
+
         $shortEvent = match (true) {
             $event instanceof SurveySeen => 'seen',
             $event instanceof SurveyOpened => 'opened',
@@ -66,17 +71,21 @@ final class SurveyWebhookDispatcher
                     $pending->onQueue($resolvedQueue);
                 }
             } else {
-                DispatchSurveyWebhookJob::dispatchSync(
-                    url: $target['url'],
-                    eventName: $eventName,
-                    payload: $payload,
-                    secret: $target['secret'],
-                    signatureHeader: $signatureHeader,
-                    headers: $target['headers'],
-                    timeout: $timeout,
-                    tries: $tries,
-                    backoff: $backoff,
-                );
+                try {
+                    DispatchSurveyWebhookJob::dispatchSync(
+                        url: $target['url'],
+                        eventName: $eventName,
+                        payload: $payload,
+                        secret: $target['secret'],
+                        signatureHeader: $signatureHeader,
+                        headers: $target['headers'],
+                        timeout: $timeout,
+                        tries: $tries,
+                        backoff: $backoff,
+                    );
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
             }
         }
     }

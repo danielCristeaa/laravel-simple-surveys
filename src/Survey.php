@@ -9,10 +9,12 @@ use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
 use Closure;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
+use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DateInterval;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Notification as BaseNotification;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -65,6 +67,19 @@ final class Survey
 
     /** @var array<int, array{url: string, events: array<int, string>, secret: string|null, headers: array<string, string>}> */
     private array $webhooks = [];
+
+    private bool $webhooksDisabled = false;
+
+    /** @var array<int, array{channel: string, route: mixed}> */
+    private array $notificationRoutes = [];
+
+    /** @var array<int, array{resolver: Closure(SurveySubmitted): mixed, channels: array<int, string>|null}> */
+    private array $notificationUserResolvers = [];
+
+    /** @var class-string<BaseNotification>|null */
+    private ?string $notificationClass = null;
+
+    private bool $notificationsDisabled = false;
 
     private function __construct(
         private readonly string $key,
@@ -374,6 +389,141 @@ final class Survey
     public function getWebhooks(): array
     {
         return $this->webhooks;
+    }
+
+    /**
+     * Suppress all global and per-survey webhooks for this survey.
+     */
+    public function withoutWebhooks(bool $disabled = true): self
+    {
+        $this->webhooksDisabled = $disabled;
+
+        return $this;
+    }
+
+    public function hasWebhooksDisabled(): bool
+    {
+        return $this->webhooksDisabled;
+    }
+
+    /**
+     * Register an on-demand notification route for survey submissions.
+     */
+    public function notify(string $channel, mixed $route): self
+    {
+        $normalizedChannel = trim($channel);
+
+        if ($normalizedChannel === '') {
+            throw new InvalidArgumentException('Notification channel cannot be empty.');
+        }
+
+        if ($route === null || (is_string($route) && trim($route) === '') || (is_array($route) && $route === [])) {
+            throw new InvalidArgumentException('Notification route cannot be empty.');
+        }
+
+        $this->notificationRoutes[] = [
+            'channel' => $normalizedChannel,
+            'route' => is_string($route) ? trim($route) : $route,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Send an email notification on survey submission to one or more recipients.
+     *
+     * @param  string|array<int|string, string>  $recipients
+     */
+    public function notifyMail(string|array $recipients): self
+    {
+        return $this->notify('mail', $recipients);
+    }
+
+    /**
+     * Send a Slack incoming webhook notification on survey submission.
+     */
+    public function notifySlack(string $webhookUrl): self
+    {
+        return $this->notify('slack', $webhookUrl);
+    }
+
+    /**
+     * Resolve notifiable models (e.g. admin User instances) to notify on survey submission.
+     *
+     * @param  Closure(SurveySubmitted): mixed  $resolver
+     * @param  array<int, string>|null  $channels
+     */
+    public function notifyUsers(Closure $resolver, ?array $channels = null): self
+    {
+        $this->notificationUserResolvers[] = [
+            'resolver' => $resolver,
+            'channels' => $channels,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Override the Laravel Notification class used for this survey's submissions.
+     */
+    public function notification(?string $notificationClass): self
+    {
+        if ($notificationClass !== null) {
+            $normalized = trim($notificationClass);
+
+            if ($normalized === '' || ! class_exists($normalized) || ! is_a($normalized, BaseNotification::class, true)) {
+                throw new InvalidArgumentException(
+                    "Survey notification [{$notificationClass}] must extend ".BaseNotification::class.'.',
+                );
+            }
+
+            $this->notificationClass = $normalized;
+
+            return $this;
+        }
+
+        $this->notificationClass = null;
+
+        return $this;
+    }
+
+    /**
+     * Suppress all global and per-survey submission notifications for this survey.
+     */
+    public function withoutNotifications(bool $disabled = true): self
+    {
+        $this->notificationsDisabled = $disabled;
+
+        return $this;
+    }
+
+    /**
+     * @return array<int, array{channel: string, route: mixed}>
+     */
+    public function getNotificationRoutes(): array
+    {
+        return $this->notificationRoutes;
+    }
+
+    /**
+     * @return array<int, array{resolver: Closure(SurveySubmitted): mixed, channels: array<int, string>|null}>
+     */
+    public function getNotificationUserResolvers(): array
+    {
+        return $this->notificationUserResolvers;
+    }
+
+    /**
+     * @return class-string<BaseNotification>|null
+     */
+    public function getNotificationClass(): ?string
+    {
+        return $this->notificationClass;
+    }
+
+    public function hasNotificationsDisabled(): bool
+    {
+        return $this->notificationsDisabled;
     }
 
     public function key(): string

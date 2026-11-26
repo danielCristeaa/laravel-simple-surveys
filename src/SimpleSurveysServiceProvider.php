@@ -12,6 +12,7 @@ use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyNotificationDispatcher;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySerializer;
@@ -55,6 +56,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyTrackingContextResolver::class);
         $this->app->singleton(SurveyWebhookPayloadBuilder::class);
         $this->app->singleton(SurveyWebhookDispatcher::class);
+        $this->app->singleton(SurveyNotificationDispatcher::class);
         $this->app->singleton(SimpleSurveys::class);
     }
 
@@ -71,6 +73,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->registerCustomerRoutes();
         $this->registerAdminRoutes();
         $this->registerWebhookListeners();
+        $this->registerNotificationListeners();
     }
 
     private function registerWebhookListeners(): void
@@ -82,6 +85,13 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
             SurveySubmitted::class,
         ], function (SurveySeen|SurveyOpened|SurveyDismissed|SurveySubmitted $event): void {
             $this->app->make(SurveyWebhookDispatcher::class)->handle($event);
+        });
+    }
+
+    private function registerNotificationListeners(): void
+    {
+        Event::listen(SurveySubmitted::class, function (SurveySubmitted $event): void {
+            $this->app->make(SurveyNotificationDispatcher::class)->handle($event);
         });
     }
 

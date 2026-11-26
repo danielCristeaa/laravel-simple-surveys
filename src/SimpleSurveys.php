@@ -9,6 +9,7 @@ use Closure;
 use DanielCristea\SimpleSurveys\Contracts\SurveyDefinition;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyNotificationDispatcher;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
@@ -24,6 +25,7 @@ final class SimpleSurveys
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyTrackingContextResolver $trackingContext,
+        private readonly SurveyNotificationDispatcher $notificationDispatcher,
     ) {}
 
     /**
@@ -64,11 +66,17 @@ final class SimpleSurveys
     {
         $this->registry->clear();
         $this->trackingContext->clear();
+        $this->notificationDispatcher->clear();
     }
 
     public function resolveTrackingContext(?Closure $callback): void
     {
         $this->trackingContext->resolveUsing($callback);
+    }
+
+    public function resolveNotifiables(?Closure $callback): void
+    {
+        $this->notificationDispatcher->resolveNotifiablesUsing($callback);
     }
 
     public function forUser(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): ?Survey

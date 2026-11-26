@@ -6,9 +6,12 @@ namespace DanielCristea\SimpleSurveys\Tests\Support;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 final class User extends Authenticatable
 {
+    use Notifiable;
+
     /** @var list<string> */
     protected $guarded = [];
 

@@ -180,3 +180,48 @@ it('throws on non-2xx webhook responses so queued jobs retry and validates empty
     expect(static fn () => $job->handle())
         ->toThrow(RequestException::class);
 });
+
+it('suppresses webhooks when withoutWebhooks is set on a survey', function (): void {
+    Queue::fake();
+
+    config()->set('simple-surveys.webhooks.enabled', true);
+    config()->set('simple-surveys.webhooks.url', 'https://data.example.test/hooks/default');
+
+    $user = User::create(['name' => 'Dana', 'email' => 'dana@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('silent-survey')
+            ->withoutWebhooks()
+            ->questions([Question::text('note', 'Note')])
+    );
+
+    $this->actingAs($user)->postJson(route('simple-surveys.responses.store', 'silent-survey'), [
+        'answers' => ['note' => 'quiet'],
+    ])->assertCreated();
+
+    Queue::assertNotPushed(DispatchSurveyWebhookJob::class);
+});
+
+it('does not break survey submissions when a synchronous webhook endpoint fails', function (): void {
+    Http::fake([
+        'https://down.example.test/*' => Http::response(['error' => 'unavailable'], 500),
+    ]);
+
+    config()->set('simple-surveys.webhooks.enabled', true);
+    config()->set('simple-surveys.webhooks.url', 'https://down.example.test/hook');
+    config()->set('simple-surveys.webhooks.events', ['submitted']);
+    config()->set('simple-surveys.webhooks.queued', false);
+
+    $user = User::create(['name' => 'Evan', 'email' => 'evan@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('resilient-survey')
+            ->questions([Question::text('note', 'Note')])
+    );
+
+    $this->actingAs($user)->postJson(route('simple-surveys.responses.store', 'resilient-survey'), [
+        'answers' => ['note' => 'still saved'],
+    ])->assertCreated();
+
+    Http::assertSentCount(1);
+});

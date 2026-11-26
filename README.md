@@ -315,7 +315,7 @@ When responses include `duration_ms` (measured client-side by the widget, or der
 
 ### Lifecycle Webhooks
 
-Forward `seen`, `opened`, `dismissed`, and `submitted` events server-to-server with queued delivery, retries, custom headers, and optional HMAC-SHA256 signing (`X-Simple-Surveys-Signature`).
+Forward `seen`, `opened`, `dismissed`, and `submitted` events server-to-server with queued delivery, retries, custom headers, and optional HMAC-SHA256 signing (`X-Simple-Surveys-Signature`). Disabled by default (`webhooks.enabled => false`).
 
 Configure globally in `config/simple-surveys.php` (supports either a single default `url` or per-event URL overrides):
 
@@ -333,7 +333,7 @@ Configure globally in `config/simple-surveys.php` (supports either a single defa
 ],
 ```
 
-Or attach webhooks directly to individual surveys:
+Or attach webhooks directly to individual surveys (or opt a survey out of global webhooks via `->withoutWebhooks()`):
 
 ```php
 Survey::make('onboarding-feedback')
@@ -343,6 +343,46 @@ Survey::make('onboarding-feedback')
         secret: env('SURVEY_WEBHOOK_SECRET'),
     );
 ```
+
+### Submission Notifications (Mail, Slack & Custom Channels)
+
+Optionally dispatch built-in Laravel notifications whenever a survey response is submitted. Completely disabled by default (`notifications.enabled => false`), supports queued delivery (`queued => true`) so submissions stay fast, and works with Mail, Slack incoming webhooks (zero extra packages required), or any custom Laravel notification channel.
+
+Configure globally in `config/simple-surveys.php`:
+
+```php
+'notifications' => [
+    'enabled' => true,
+    'notification' => \DanielCristea\SimpleSurveys\Notifications\SurveySubmittedNotification::class,
+    'channels' => ['mail', 'slack'],
+    'routes' => [
+        'mail' => ['product@example.com', 'ops@example.com'],
+        'slack' => env('SIMPLE_SURVEYS_SLACK_WEBHOOK_URL'),
+    ],
+    'queued' => true,
+    'queue' => 'notifications',
+],
+```
+
+You can also resolve global `Notifiable` models (such as admin users) in `AppServiceProvider::boot()`:
+
+```php
+use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
+use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+
+SimpleSurveys::resolveNotifiables(fn (SurveySubmitted $event) => User::where('is_admin', true)->get());
+```
+
+Or configure notifications per survey (works even when global `notifications.enabled` is `false`, or suppress global notifications on a specific survey with `->withoutNotifications()`):
+
+```php
+Survey::make('checkout-feedback')
+    ->notifyMail('checkout-team@example.com')
+    ->notifySlack(env('CHECKOUT_SLACK_WEBHOOK_URL'))
+    ->notifyUsers(fn (SurveySubmitted $event) => User::where('is_admin', true)->get(), channels: ['mail', 'database']);
+```
+
+To customize the notification content, extend `SurveySubmittedNotification` (or pass any Laravel `Notification` class) via `simple-surveys.notifications.notification` or per-survey `->notification(CustomSurveyNotification::class)`.
 
 ## Events
 
@@ -363,6 +403,7 @@ Key options in `config/simple-surveys.php`:
 - `routes` — Enable/disable customer submission/dismissal routes, prefix, and middleware.
 - `tracking` — Toggle impression tracking (`tracking.impressions`) and auto-captured cookies (`tracking.cookies`).
 - `webhooks` — Enable/configure server-to-server lifecycle webhooks (`enabled`, `url`, `events`, `secret`, `signature_header`, `headers`, `queued`, `queue`, `timeout`, `tries`, `backoff`).
+- `notifications` — Enable/configure optional submission notifications (`enabled`, `notification`, `channels`, `routes`, `queued`, `queue`, `slack_timeout`).
 - `admin` — Enable/disable admin dashboard routes, prefix, middleware, Gate ability name, and `appearance_editor` toggle.
 
 ## Testing & Quality
