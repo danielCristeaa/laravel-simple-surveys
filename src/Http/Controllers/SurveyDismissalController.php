@@ -13,7 +13,9 @@ use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
+use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -79,38 +81,18 @@ final class SurveyDismissalController
 
         $source = $this->trackingContext->resolveDismissalSource($request);
 
-        /** @var SurveyDismissal $dismissal */
-        $dismissal = DB::transaction(function () use ($survey, $user, $existingDismissal, $source): SurveyDismissal {
-            $record = $this->synchronizer->sync($survey);
+        [$dismissal, $shouldDispatch] = $this->persistDismissal($survey, $user, $source);
 
-            if ($existingDismissal !== null) {
-                $existingDismissal->update([
-                    'dismissed_at' => now(),
-                    'source' => $source,
-                    'dismiss_count' => $existingDismissal->dismiss_count + 1,
-                ]);
-
-                return $existingDismissal;
-            }
-
-            return SurveyDismissal::query()->create([
-                'survey_id' => $record->getKey(),
-                'respondent_type' => $user->getMorphClass(),
-                'respondent_id' => $user->getKey(),
-                'dismissed_at' => now(),
+        if ($dismissal !== null && $shouldDispatch) {
+            $context = array_filter([
+                'url' => $this->trackingContext->resolveUrl($request),
                 'source' => $source,
-                'dismiss_count' => 1,
-            ]);
-        });
+            ], static fn (mixed $value): bool => $value !== null);
 
-        $context = array_filter([
-            'url' => $this->trackingContext->resolveUrl($request),
-            'source' => $source,
-        ], static fn (mixed $value): bool => $value !== null);
+            $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
 
-        $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
-
-        SurveyDismissed::dispatch($survey, $dismissal, $user, $context, $tracking);
+            SurveyDismissed::dispatch($survey, $dismissal, $user, $context, $tracking);
+        }
 
         if ($request->expectsJson()) {
             return new JsonResponse([
@@ -120,5 +102,53 @@ final class SurveyDismissalController
         }
 
         return back();
+    }
+
+    /**
+     * @return array{0: SurveyDismissal|null, 1: bool}
+     */
+    private function persistDismissal(Survey $survey, Model $user, ?string $source): array
+    {
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                return DB::transaction(function () use ($survey, $user, $source): array {
+                    $record = $this->synchronizer->sync($survey);
+
+                    $existing = SurveyDismissal::query()
+                        ->forSurvey($record)
+                        ->forRespondent($user)
+                        ->first();
+
+                    if ($existing !== null) {
+                        if (! $survey->isDismissalExpired($existing->dismissed_at)) {
+                            return [$existing, false];
+                        }
+
+                        $existing->update([
+                            'dismissed_at' => now(),
+                            'source' => $source,
+                            'dismiss_count' => $existing->dismiss_count + 1,
+                        ]);
+
+                        return [$existing, true];
+                    }
+
+                    $created = SurveyDismissal::query()->create([
+                        'survey_id' => $record->getKey(),
+                        'respondent_type' => $user->getMorphClass(),
+                        'respondent_id' => $user->getKey(),
+                        'dismissed_at' => now(),
+                        'source' => $source,
+                        'dismiss_count' => 1,
+                    ]);
+
+                    return [$created, true];
+                });
+            } catch (UniqueConstraintViolationException) {
+                continue;
+            }
+        }
+
+        return [null, false];
     }
 }

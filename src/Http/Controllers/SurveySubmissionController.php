@@ -19,7 +19,9 @@ use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
 use DanielCristea\SimpleSurveys\Services\SurveyValidator;
+use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -112,43 +114,7 @@ final class SurveySubmissionController
             $metadata['tracking'] = $tracking;
         }
 
-        /** @var SurveyResponse $response */
-        $response = DB::transaction(function () use ($survey, $user, $answers, $metadata, $existingDismissal): SurveyResponse {
-            $record = $this->synchronizer->sync($survey);
-
-            if ($existingDismissal !== null) {
-                $existingDismissal->delete();
-            }
-
-            $response = SurveyResponse::query()->create([
-                'survey_id' => $record->getKey(),
-                'respondent_type' => $user->getMorphClass(),
-                'respondent_id' => $user->getKey(),
-                'metadata' => $metadata !== [] ? $metadata : null,
-            ]);
-
-            /** @var array<string, SurveyQuestion> $questionsByKey */
-            $questionsByKey = [];
-            foreach ($record->questions as $questionModel) {
-                $questionsByKey[$questionModel->key] = $questionModel;
-            }
-
-            foreach ($answers as $questionKey => $value) {
-                $questionModel = $questionsByKey[$questionKey] ?? null;
-
-                if ($questionModel === null) {
-                    continue;
-                }
-
-                SurveyAnswer::query()->create([
-                    'response_id' => $response->getKey(),
-                    'question_id' => $questionModel->getKey(),
-                    ...$this->encodeAnswerValue($questionModel->type, $value),
-                ]);
-            }
-
-            return $response->load(['survey', 'answers.question']);
-        });
+        $response = $this->persistSubmission($survey, $user, $answers, $metadata, $existingDismissal);
 
         SurveySubmitted::dispatch($survey, $response, $user, $context, $tracking);
 
@@ -162,6 +128,72 @@ final class SurveySubmissionController
         }
 
         return back()->with('simple_surveys_status', $thankYouMessage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $answers
+     * @param  array<string, mixed>  $metadata
+     */
+    private function persistSubmission(
+        Survey $survey,
+        Model $user,
+        array $answers,
+        array $metadata,
+        ?SurveyDismissal $existingDismissal,
+    ): SurveyResponse {
+        $attempts = 0;
+
+        while (true) {
+            try {
+                return DB::transaction(function () use ($survey, $user, $answers, $metadata, $existingDismissal): SurveyResponse {
+                    $record = $this->synchronizer->sync($survey);
+
+                    if ($existingDismissal !== null) {
+                        SurveyDismissal::query()
+                            ->forSurvey($record)
+                            ->forRespondent($user)
+                            ->delete();
+                    }
+
+                    try {
+                        $response = SurveyResponse::query()->create([
+                            'survey_id' => $record->getKey(),
+                            'respondent_type' => $user->getMorphClass(),
+                            'respondent_id' => $user->getKey(),
+                            'metadata' => $metadata !== [] ? $metadata : null,
+                        ]);
+                    } catch (UniqueConstraintViolationException) {
+                        abort(409, $this->translator->ui('errors.already_submitted'));
+                    }
+
+                    /** @var array<string, SurveyQuestion> $questionsByKey */
+                    $questionsByKey = [];
+                    foreach ($record->questions as $questionModel) {
+                        $questionsByKey[$questionModel->key] = $questionModel;
+                    }
+
+                    foreach ($answers as $questionKey => $value) {
+                        $questionModel = $questionsByKey[$questionKey] ?? null;
+
+                        if ($questionModel === null) {
+                            continue;
+                        }
+
+                        SurveyAnswer::query()->create([
+                            'response_id' => $response->getKey(),
+                            'question_id' => $questionModel->getKey(),
+                            ...$this->encodeAnswerValue($questionModel->type, $value),
+                        ]);
+                    }
+
+                    return $response->load(['survey', 'answers.question']);
+                });
+            } catch (UniqueConstraintViolationException $exception) {
+                if (++$attempts >= 2) {
+                    throw $exception;
+                }
+            }
+        }
     }
 
     /**

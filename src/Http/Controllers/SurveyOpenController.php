@@ -11,7 +11,9 @@ use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
+use DanielCristea\SimpleSurveys\Survey;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,42 +48,17 @@ final class SurveyOpenController
             abort(403, $this->translator->ui('errors.not_eligible'));
         }
 
-        /** @var SurveyOpen $open */
-        $open = DB::transaction(function () use ($survey, $user): SurveyOpen {
-            $record = $this->synchronizer->sync($survey);
-            $now = now();
+        $open = $this->persistOpen($survey, $user);
 
-            $existing = SurveyOpen::query()
-                ->forSurvey($record)
-                ->forRespondent($user)
-                ->first();
+        if ($open !== null) {
+            $context = array_filter([
+                'url' => $this->trackingContext->resolveUrl($request),
+            ], static fn (mixed $value): bool => $value !== null);
 
-            if ($existing !== null) {
-                $existing->update([
-                    'open_count' => $existing->open_count + 1,
-                    'last_opened_at' => $now,
-                ]);
+            $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
 
-                return $existing;
-            }
-
-            return SurveyOpen::query()->create([
-                'survey_id' => $record->getKey(),
-                'respondent_type' => $user->getMorphClass(),
-                'respondent_id' => $user->getKey(),
-                'open_count' => 1,
-                'first_opened_at' => $now,
-                'last_opened_at' => $now,
-            ]);
-        });
-
-        $context = array_filter([
-            'url' => $this->trackingContext->resolveUrl($request),
-        ], static fn (mixed $value): bool => $value !== null);
-
-        $tracking = $this->trackingContext->resolveTracking($request, $user, $survey);
-
-        SurveyOpened::dispatch($survey, $open, $user, $context, $tracking);
+            SurveyOpened::dispatch($survey, $open, $user, $context, $tracking);
+        }
 
         if ($request->expectsJson()) {
             return new JsonResponse([
@@ -91,5 +68,44 @@ final class SurveyOpenController
         }
 
         return back();
+    }
+
+    private function persistOpen(Survey $survey, Model $user): ?SurveyOpen
+    {
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                return DB::transaction(function () use ($survey, $user): SurveyOpen {
+                    $record = $this->synchronizer->sync($survey);
+                    $now = now();
+
+                    $existing = SurveyOpen::query()
+                        ->forSurvey($record)
+                        ->forRespondent($user)
+                        ->first();
+
+                    if ($existing !== null) {
+                        $existing->update([
+                            'open_count' => $existing->open_count + 1,
+                            'last_opened_at' => $now,
+                        ]);
+
+                        return $existing;
+                    }
+
+                    return SurveyOpen::query()->create([
+                        'survey_id' => $record->getKey(),
+                        'respondent_type' => $user->getMorphClass(),
+                        'respondent_id' => $user->getKey(),
+                        'open_count' => 1,
+                        'first_opened_at' => $now,
+                        'last_opened_at' => $now,
+                    ]);
+                });
+            } catch (UniqueConstraintViolationException) {
+                continue;
+            }
+        }
+
+        return null;
     }
 }
