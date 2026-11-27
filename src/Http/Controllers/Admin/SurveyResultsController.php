@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Http\Controllers\Admin;
 
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
+use DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -13,6 +14,7 @@ final class SurveyResultsController
 {
     public function __construct(
         private readonly SurveyResultsAggregator $aggregator,
+        private readonly SurveyCspNonceResolver $cspNonceResolver,
     ) {}
 
     public function index(Request $request): View
@@ -99,6 +101,7 @@ final class SurveyResultsController
                 'sort' => $sort,
                 'dir' => $dir,
             ],
+            'cspNonce' => $this->cspNonceResolver->resolve(),
         ]);
     }
 
@@ -144,6 +147,7 @@ final class SurveyResultsController
             'perPage' => $perPage,
             'filters' => $filters,
             'surveyOptions' => $this->aggregator->surveyOptions(),
+            'cspNonce' => $this->cspNonceResolver->resolve(),
         ]);
     }
 }

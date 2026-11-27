@@ -49,6 +49,19 @@
             'closed' => 'Closed',
             'archived' => 'Archived',
         ];
+        $resolvedCspNonce = array_key_exists('cspNonce', get_defined_vars())
+            ? (is_string($cspNonce) && trim($cspNonce) !== '' ? trim($cspNonce) : null)
+            : app(\DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver::class)->resolve();
+        $cspNonceAttr = $resolvedCspNonce !== null ? ' nonce="'.e($resolvedCspNonce).'"' : '';
+        $barRules = [];
+        $registerBarWidth = static function (int|float|null $pct) use (&$barRules): int {
+            $clamped = max(0.0, min(100.0, (float) ($pct ?? 0)));
+            $formatted = rtrim(rtrim(number_format($clamped, 2, '.', ''), '0'), '.');
+            $idx = count($barRules) + 1;
+            $barRules[$idx] = $formatted;
+
+            return $idx;
+        };
     @endphp
 
     <div class="page-header">
@@ -76,7 +89,7 @@
             </div>
             <div class="stat-sub">Responses / Seen</div>
             <div class="stat-bar" aria-hidden="true">
-                <div class="stat-bar-fill" style="width: {{ min(100, $overallResponseRate ?? 0) }}%;"></div>
+                <div class="stat-bar-fill" data-lss-bar="{{ $registerBarWidth($overallResponseRate) }}"></div>
             </div>
         </div>
 
@@ -87,7 +100,7 @@
             </div>
             <div class="stat-sub">Responses / Opened</div>
             <div class="stat-bar" aria-hidden="true">
-                <div class="stat-bar-fill stat-bar-fill-success" style="width: {{ min(100, $overallCompletionRate ?? 0) }}%;"></div>
+                <div class="stat-bar-fill stat-bar-fill-success" data-lss-bar="{{ $registerBarWidth($overallCompletionRate) }}"></div>
             </div>
         </div>
 
@@ -154,7 +167,7 @@
                         >
                     </div>
 
-                    <select name="sort" class="select-sm" aria-label="Sort surveys" onchange="this.form.submit()">
+                    <select name="sort" class="select-sm" aria-label="Sort surveys" data-auto-submit>
                         <option value="priority" @selected($activeSort === 'priority')>Sort: Priority</option>
                         <option value="responses" @selected($activeSort === 'responses')>Sort: Most Responses</option>
                         <option value="seen" @selected($activeSort === 'seen')>Sort: Most Seen</option>
@@ -175,12 +188,12 @@
         @if ($allList->isEmpty())
             <div class="empty">
                 <p class="empty-title">No surveys found yet</p>
-                <p style="margin: 0;">Register a survey in your application using <code>SimpleSurveys::register(...)</code>.</p>
+                <p class="m-0">Register a survey in your application using <code>SimpleSurveys::register(...)</code>.</p>
             </div>
         @elseif ($summaries->isEmpty())
             <div class="empty">
                 <p class="empty-title">No surveys match your current filters</p>
-                <p style="margin: 0 0 12px;">Try adjusting your search query or status filter.</p>
+                <p class="mb-12">Try adjusting your search query or status filter.</p>
                 <a href="{{ route('simple-surveys.admin.index') }}" class="btn btn-sm">Clear filters</a>
             </div>
         @else
@@ -203,16 +216,16 @@
                         @foreach ($summaries as $survey)
                             <tr>
                                 <td>
-                                    <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" style="font-weight: 600; color: var(--text);">
+                                    <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" class="survey-title-link">
                                         {{ $survey['title'] }}
                                     </a>
-                                    <div class="muted" style="font-size: 12px; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <div class="muted survey-sub-meta">
                                         <code>{{ $survey['key'] }}</code>
                                         <span>&middot;</span>
                                         <span>{{ $survey['questions_count'] }} {{ $survey['questions_count'] === 1 ? 'question' : 'questions' }}</span>
                                     </div>
                                 </td>
-                                <td style="white-space: nowrap;">
+                                <td class="nowrap">
                                     <span class="badge badge-{{ $survey['status']->value }}">
                                         <span class="badge-dot" aria-hidden="true"></span>
                                         {{ $survey['status']->value }}
@@ -232,7 +245,7 @@
                                 <td class="col-num">
                                     <strong>{{ number_format($survey['responses_count']) }}</strong>
                                     @if ($survey['abandoned_count'] > 0 || $survey['dismissals_count'] > 0)
-                                        <div class="muted" style="font-size: 11px;">
+                                        <div class="muted text-11">
                                             {{ $survey['abandoned_count'] }} abnd &middot; {{ $survey['dismissals_count'] }} dism
                                         </div>
                                     @endif
@@ -242,7 +255,7 @@
                                         <div class="rate-cell">
                                             <span>{{ $survey['response_rate'] }}%</span>
                                             <div class="mini-bar-track" aria-hidden="true">
-                                                <div class="mini-bar-fill" style="width: {{ min(100, $survey['response_rate']) }}%;"></div>
+                                                <div class="mini-bar-fill" data-lss-bar="{{ $registerBarWidth($survey['response_rate']) }}"></div>
                                             </div>
                                         </div>
                                     @else
@@ -254,7 +267,7 @@
                                         <div class="rate-cell">
                                             <span>{{ $survey['completion_rate'] }}%</span>
                                             <div class="mini-bar-track" aria-hidden="true">
-                                                <div class="mini-bar-fill mini-bar-fill-success" style="width: {{ min(100, $survey['completion_rate']) }}%;"></div>
+                                                <div class="mini-bar-fill mini-bar-fill-success" data-lss-bar="{{ $registerBarWidth($survey['completion_rate']) }}"></div>
                                             </div>
                                         </div>
                                     @else
@@ -262,7 +275,7 @@
                                     @endif
                                 </td>
                                 <td class="col-actions">
-                                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <div class="inline-actions">
                                         <a href="{{ route('simple-surveys.admin.show', $survey['key']) }}" class="btn btn-sm">
                                             View
                                         </a>
@@ -303,4 +316,8 @@
             </div>
         @endif
     </div>
+
+    @if ($barRules !== [])
+        <style{!! $cspNonceAttr !!}>@foreach ($barRules as $barIdx => $barWidth)[data-lss-bar="{{ $barIdx }}"]{width:{{ $barWidth }}%;}@endforeach</style>
+    @endif
 @endsection

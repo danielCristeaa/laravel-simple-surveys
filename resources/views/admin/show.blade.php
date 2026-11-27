@@ -62,6 +62,19 @@
             $params,
             static fn (mixed $value): bool => $value !== null && $value !== '',
         );
+        $resolvedCspNonce = array_key_exists('cspNonce', get_defined_vars())
+            ? (is_string($cspNonce) && trim($cspNonce) !== '' ? trim($cspNonce) : null)
+            : app(\DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver::class)->resolve();
+        $cspNonceAttr = $resolvedCspNonce !== null ? ' nonce="'.e($resolvedCspNonce).'"' : '';
+        $barRules = [];
+        $registerBarWidth = static function (int|float|null $pct) use (&$barRules): int {
+            $clamped = max(0.0, min(100.0, (float) ($pct ?? 0)));
+            $formatted = rtrim(rtrim(number_format($clamped, 2, '.', ''), '0'), '.');
+            $idx = count($barRules) + 1;
+            $barRules[$idx] = $formatted;
+
+            return $idx;
+        };
     @endphp
 
     <div class="breadcrumb-bar">
@@ -82,7 +95,7 @@
     </div>
 
     <div class="page-header">
-        <div style="min-width: 0; flex: 1;">
+        <div class="page-header-main">
             <div class="page-title-row">
                 <h1 class="page-title">{{ $results['title'] }}</h1>
                 <span class="badge badge-{{ $results['status']->value }}">
@@ -199,7 +212,7 @@
                             <form
                                 method="POST"
                                 action="{{ route('simple-surveys.admin.reset', $results['key']) }}"
-                                style="margin: 0;"
+                                class="m-0"
                                 data-confirm-title="Reset survey responses?"
                                 data-confirm-message="This will permanently delete all submitted responses, answers, dismissals, open tracking, and impression tracking for this survey. Eligible users will be able to see and take it again."
                                 data-confirm-button="Reset Responses"
@@ -245,7 +258,7 @@
             @endif
         </nav>
 
-        <div class="segmented" role="group" aria-label="Date range filter" style="margin-bottom: 6px;">
+        <div class="segmented mb-6" role="group" aria-label="Date range filter">
             @foreach ($rangeLabels as $rangeKey => $rangeLabel)
                 <a
                     href="{{ route('simple-surveys.admin.show', $routeParams([
@@ -301,7 +314,7 @@
                 </div>
                 <div class="stat-sub">Responses / Seen</div>
                 <div class="stat-bar" aria-hidden="true">
-                    <div class="stat-bar-fill" style="width: {{ min(100, $results['response_rate'] ?? 0) }}%;"></div>
+                    <div class="stat-bar-fill" data-lss-bar="{{ $registerBarWidth($results['response_rate']) }}"></div>
                 </div>
             </div>
 
@@ -312,7 +325,7 @@
                 </div>
                 <div class="stat-sub">Responses / Opened</div>
                 <div class="stat-bar" aria-hidden="true">
-                    <div class="stat-bar-fill stat-bar-fill-success" style="width: {{ min(100, $results['completion_rate'] ?? 0) }}%;"></div>
+                    <div class="stat-bar-fill stat-bar-fill-success" data-lss-bar="{{ $registerBarWidth($results['completion_rate']) }}"></div>
                 </div>
             </div>
         </div>
@@ -339,7 +352,7 @@
                             </span>
                         </div>
                         <div class="funnel-track">
-                            <div class="funnel-fill funnel-fill-seen" style="width: {{ $seenPct }}%;"></div>
+                            <div class="funnel-fill funnel-fill-seen" data-lss-bar="{{ $registerBarWidth($seenPct) }}"></div>
                         </div>
                     </div>
 
@@ -354,7 +367,7 @@
                             </span>
                         </div>
                         <div class="funnel-track">
-                            <div class="funnel-fill funnel-fill-opened" style="width: {{ $openedPct }}%;"></div>
+                            <div class="funnel-fill funnel-fill-opened" data-lss-bar="{{ $registerBarWidth($openedPct) }}"></div>
                         </div>
                     </div>
 
@@ -369,18 +382,18 @@
                             </span>
                         </div>
                         <div class="funnel-track">
-                            <div class="funnel-fill funnel-fill-responses" style="width: {{ $respPct }}%;"></div>
+                            <div class="funnel-fill funnel-fill-responses" data-lss-bar="{{ $registerBarWidth($respPct) }}"></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="funnel-dropoff">
                     <span class="dropoff-chip">
-                        <span class="dropoff-dot" style="background: #f59e0b;"></span>
+                        <span class="dropoff-dot dropoff-dot-abandoned"></span>
                         Abandoned: <strong>{{ number_format($results['abandoned_count']) }}</strong>
                     </span>
                     <span class="dropoff-chip">
-                        <span class="dropoff-dot" style="background: #94a3b8;"></span>
+                        <span class="dropoff-dot dropoff-dot-dismissed"></span>
                         Dismissals: <strong>{{ number_format($results['dismissals_count']) }}</strong>
                     </span>
                 </div>
@@ -518,9 +531,9 @@
                         data-question-search="{{ mb_strtolower($question['label'] . ' ' . $question['key'] . ' ' . $qType->value) }}"
                     >
                         <div class="question-head">
-                            <div style="display: flex; align-items: flex-start; min-width: 0;">
+                            <div class="question-head-main">
                                 <span class="question-index">Q{{ $qIndex + 1 }}</span>
-                                <div style="min-width: 0;">
+                                <div class="min-w-0">
                                     <h3 class="question-title">{{ $question['label'] }}</h3>
                                     <div class="question-meta">
                                         <code>{{ $question['key'] }}</code>
@@ -600,20 +613,20 @@
                                     @php $nps = $question['nps']; @endphp
                                     <div class="nps-box">
                                         <div class="nps-head">
-                                            <span class="muted" style="font-weight: 600;">Net Promoter Score (NPS)</span>
+                                            <span class="muted font-semibold">Net Promoter Score (NPS)</span>
                                             <span class="nps-score-badge {{ $nps['score'] >= 0 ? 'badge-active' : 'btn-danger' }}">
                                                 {{ $nps['score'] > 0 ? '+' . $nps['score'] : $nps['score'] }}
                                             </span>
                                         </div>
                                         <div class="nps-bar" aria-hidden="true">
                                             @if ($nps['detractors_pct'] > 0)
-                                                <div class="nps-seg-det" style="width: {{ $nps['detractors_pct'] }}%;"></div>
+                                                <div class="nps-seg-det" data-lss-bar="{{ $registerBarWidth($nps['detractors_pct']) }}"></div>
                                             @endif
                                             @if ($nps['passives_pct'] > 0)
-                                                <div class="nps-seg-pas" style="width: {{ $nps['passives_pct'] }}%;"></div>
+                                                <div class="nps-seg-pas" data-lss-bar="{{ $registerBarWidth($nps['passives_pct']) }}"></div>
                                             @endif
                                             @if ($nps['promoters_pct'] > 0)
-                                                <div class="nps-seg-pro" style="width: {{ $nps['promoters_pct'] }}%;"></div>
+                                                <div class="nps-seg-pro" data-lss-bar="{{ $registerBarWidth($nps['promoters_pct']) }}"></div>
                                             @endif
                                         </div>
                                         <div class="nps-legend">
@@ -664,8 +677,8 @@
                                         <div class="boolean-bars">
                                             <div class="split-bar" aria-hidden="true">
                                                 @if ($question['answered_count'] > 0)
-                                                    <div class="split-yes" style="width: {{ $yesItem['percentage'] }}%;"></div>
-                                                    <div class="split-no" style="width: {{ $noItem['percentage'] }}%;"></div>
+                                                    <div class="split-yes" data-lss-bar="{{ $registerBarWidth($yesItem['percentage']) }}"></div>
+                                                    <div class="split-no" data-lss-bar="{{ $registerBarWidth($noItem['percentage']) }}"></div>
                                                 @endif
                                             </div>
                                             <div class="boolean-legend">
@@ -674,7 +687,7 @@
                                                     class="boolean-item"
                                                     title="Filter responses where Yes"
                                                 >
-                                                    <span class="dropoff-dot" style="background: var(--chart-yes);"></span>
+                                                    <span class="dropoff-dot dropoff-dot-yes"></span>
                                                     <span>Yes</span>
                                                     <strong>{{ $yesItem['count'] }}</strong>
                                                     <span class="muted">({{ $yesItem['percentage'] }}%)</span>
@@ -684,7 +697,7 @@
                                                     class="boolean-item"
                                                     title="Filter responses where No"
                                                 >
-                                                    <span class="dropoff-dot" style="background: var(--chart-no);"></span>
+                                                    <span class="dropoff-dot dropoff-dot-no"></span>
                                                     <span>No</span>
                                                     <strong>{{ $noItem['count'] }}</strong>
                                                     <span class="muted">({{ $noItem['percentage'] }}%)</span>
@@ -776,7 +789,7 @@
                                             </span>
                                         </div>
                                         <div class="bar-track">
-                                            <div class="bar-fill {{ $isTop ? '' : 'bar-fill-secondary' }}" style="width: {{ min(100, $item['percentage']) }}%;"></div>
+                                            <div class="bar-fill {{ $isTop ? '' : 'bar-fill-secondary' }}" data-lss-bar="{{ $registerBarWidth($item['percentage']) }}"></div>
                                         </div>
                                     </a>
                                 @endforeach
@@ -823,7 +836,7 @@
         {{-- TAB 2: INDIVIDUAL RESPONSES --}}
         <div class="card card-flush">
             <div class="toolbar">
-                <form method="GET" action="{{ route('simple-surveys.admin.show', $results['key']) }}" class="toolbar-controls" style="flex: 1;">
+                <form method="GET" action="{{ route('simple-surveys.admin.show', $results['key']) }}" class="toolbar-controls flex-1">
                     <input type="hidden" name="tab" value="responses">
                     @if ($range !== 'all')
                         <input type="hidden" name="range" value="{{ $range }}">
@@ -851,7 +864,7 @@
                     </div>
 
                     @if (! empty($results['locales']))
-                        <select name="locale" class="select-sm" aria-label="Filter by locale" onchange="this.form.submit()">
+                        <select name="locale" class="select-sm" aria-label="Filter by locale" data-auto-submit>
                             <option value="">All Locales</option>
                             @foreach ($results['locales'] as $localeItem)
                                 <option value="{{ $localeItem['locale'] }}" @selected($localeFilter === $localeItem['locale'])>
@@ -861,7 +874,7 @@
                         </select>
                     @endif
 
-                    <select name="per_page" class="select-sm" aria-label="Rows per page" onchange="this.form.submit()">
+                    <select name="per_page" class="select-sm" aria-label="Rows per page" data-auto-submit>
                         <option value="15" @selected($perPage === 15)>15 / page</option>
                         <option value="25" @selected($perPage === 25)>25 / page</option>
                         <option value="50" @selected($perPage === 50)>50 / page</option>
@@ -900,7 +913,7 @@
                     <p class="empty-title">
                         {{ $hasResponseFilters || $range !== 'all' ? 'No matching responses found' : 'No responses recorded yet' }}
                     </p>
-                    <p style="margin: 0;">
+                    <p class="m-0">
                         {{ $hasResponseFilters || $range !== 'all' ? 'Try widening your date range or clearing active filters.' : 'Submissions will appear here as soon as respondents complete the survey.' }}
                     </p>
                 </div>
@@ -957,18 +970,18 @@
                                     ];
                                 @endphp
                                 <tr class="is-clickable" data-response-row data-response-payload='@json($drawerPayload)'>
-                                    <td class="sticky-col" style="white-space: nowrap;">
-                                        <div style="font-weight: 600;">#{{ $response->id }}</div>
-                                        <div class="muted" style="font-size: 11.5px;">Respondent #{{ $response->respondent_id }}</div>
+                                    <td class="sticky-col nowrap">
+                                        <div class="font-semibold">#{{ $response->id }}</div>
+                                        <div class="muted text-115">Respondent #{{ $response->respondent_id }}</div>
                                     </td>
-                                    <td style="white-space: nowrap;">
+                                    <td class="nowrap">
                                         @if ($responseLocale !== null)
                                             <code>{{ $responseLocale }}</code>
                                         @else
                                             <span class="muted">&mdash;</span>
                                         @endif
                                     </td>
-                                    <td style="white-space: nowrap;" class="tabular">
+                                    <td class="nowrap tabular">
                                         {{ $response->created_at?->toDateTimeString() ?? '—' }}
                                     </td>
                                     @foreach ($qaPairs as $pair)
@@ -986,7 +999,7 @@
                 </div>
 
                 <div class="pagination-bar">
-                    <span class="muted tabular" style="font-size: 12.5px;">
+                    <span class="muted tabular text-125">
                         Showing {{ $results['responses']->firstItem() }}–{{ $results['responses']->lastItem() }} of {{ number_format($results['responses']->total()) }} responses
                     </span>
 
@@ -1031,7 +1044,11 @@
         </div>
     @endif
 
-    <script>
+    @if ($barRules !== [])
+        <style{!! $cspNonceAttr !!}>@foreach ($barRules as $barIdx => $barWidth)[data-lss-bar="{{ $barIdx }}"]{width:{{ $barWidth }}%;}@endforeach</style>
+    @endif
+
+    <script{!! $cspNonceAttr !!}>
         (function () {
             /* Trend chart hover readout */
             var trendReadout = document.getElementById('lss-trend-readout');

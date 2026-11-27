@@ -8,6 +8,7 @@ use DanielCristea\SimpleSurveys\Enums\WidgetPosition;
 use DanielCristea\SimpleSurveys\Enums\WidgetTheme;
 use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
@@ -23,6 +24,7 @@ final class WidgetController
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
         private readonly SurveyAppearanceResolver $appearanceResolver,
+        private readonly SurveyCspNonceResolver $cspNonceResolver,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -87,6 +89,7 @@ final class WidgetController
                     $activeSurvey->getIcon() ?? $defaultIcon ?? WidgetIcon::fromConfig()
                 ),
                 'inlineStyle' => $appearance->toInlineStyle(),
+                'cspNonce' => $this->cspNonceResolver->resolve(),
             ])
             ->header('Cache-Control', 'no-store, private');
     }

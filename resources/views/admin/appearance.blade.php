@@ -67,9 +67,15 @@
         $priority = $priority ?? $survey->getPriority();
         $questionsCount = $questionsCount ?? count($survey->getQuestions());
         $responsesCount = $responsesCount ?? 0;
+        $resolvedCspNonce = array_key_exists('cspNonce', get_defined_vars())
+            ? (is_string($cspNonce) && trim($cspNonce) !== '' ? trim($cspNonce) : null)
+            : app(\DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver::class)->resolve();
+        $cspNonceAttr = $resolvedCspNonce !== null ? ' nonce="'.e($resolvedCspNonce).'"' : '';
+        $previewInlineStyle = $appearance->toInlineStyle();
     @endphp
 
-    <style>{!! WidgetStyles::css() !!}</style>
+    <style{!! $cspNonceAttr !!}>{!! WidgetStyles::css() !!}</style>
+    <style{!! $cspNonceAttr !!} id="lss-preview-overrides">#lss-preview-root { {!! $previewInlineStyle !!} }</style>
 
     <div class="breadcrumb-bar">
         <a href="{{ route('simple-surveys.admin.index') }}" class="breadcrumb-link">&larr; All Surveys</a>
@@ -91,7 +97,7 @@
     </div>
 
     <div class="page-header">
-        <div style="min-width: 0; flex: 1;">
+        <div class="page-header-main">
             <div class="page-title-row">
                 <h1 class="page-title">{{ $survey->getTitle() }}</h1>
                 <span class="badge badge-{{ $status->value }}">
@@ -172,8 +178,8 @@
             <details class="collapsible-card" open>
                 <summary class="collapsible-summary">
                     <div>
-                        <h2 class="section-heading" style="margin: 0;">Presets &amp; Placement</h2>
-                        <p class="section-desc" style="margin: 2px 0 0;">Theme preset, screen position, and quick accent palettes.</p>
+                        <h2 class="section-heading m-0">Presets &amp; Placement</h2>
+                        <p class="section-desc mt-2">Theme preset, screen position, and quick accent palettes.</p>
                     </div>
                     <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -215,22 +221,22 @@
 
                     <div class="preset-chips" aria-label="Quick accent palettes">
                         <button type="button" class="preset-chip" data-palette-accent="#4f46e5" data-palette-hover="#4338ca" data-palette-btn-text="#ffffff">
-                            <span class="preset-dot" style="background: #4f46e5;"></span> Indigo
+                            <span class="preset-dot preset-dot-indigo"></span> Indigo
                         </button>
                         <button type="button" class="preset-chip" data-palette-accent="#10b981" data-palette-hover="#059669" data-palette-btn-text="#ffffff">
-                            <span class="preset-dot" style="background: #10b981;"></span> Emerald
+                            <span class="preset-dot preset-dot-emerald"></span> Emerald
                         </button>
                         <button type="button" class="preset-chip" data-palette-accent="#e11d48" data-palette-hover="#be123c" data-palette-btn-text="#ffffff">
-                            <span class="preset-dot" style="background: #e11d48;"></span> Rose
+                            <span class="preset-dot preset-dot-rose"></span> Rose
                         </button>
                         <button type="button" class="preset-chip" data-palette-accent="#d97706" data-palette-hover="#b45309" data-palette-btn-text="#ffffff">
-                            <span class="preset-dot" style="background: #d97706;"></span> Amber
+                            <span class="preset-dot preset-dot-amber"></span> Amber
                         </button>
                         <button type="button" class="preset-chip" data-palette-accent="#0284c7" data-palette-hover="#0369a1" data-palette-btn-text="#ffffff">
-                            <span class="preset-dot" style="background: #0284c7;"></span> Sky
+                            <span class="preset-dot preset-dot-sky"></span> Sky
                         </button>
                         <button type="button" class="preset-chip" data-palette-accent="#0f172a" data-palette-hover="#1e293b" data-palette-btn-text="#ffffff">
-                            <span class="preset-dot" style="background: #0f172a;"></span> Slate
+                            <span class="preset-dot preset-dot-slate"></span> Slate
                         </button>
                     </div>
                 </div>
@@ -240,8 +246,8 @@
             <details class="collapsible-card" open>
                 <summary class="collapsible-summary">
                     <div>
-                        <h2 class="section-heading" style="margin: 0;">Banner Icon</h2>
-                        <p class="section-desc" style="margin: 2px 0 0;">Built-in presets, hidden icon, or custom <code>public/</code> image.</p>
+                        <h2 class="section-heading m-0">Banner Icon</h2>
+                        <p class="section-desc mt-2">Built-in presets, hidden icon, or custom <code>public/</code> image.</p>
                     </div>
                     <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -352,7 +358,7 @@
                     </div>
 
                     @error('icon')
-                        <p class="form-error" style="margin-top: 8px;">{{ $message }}</p>
+                        <p class="form-error mt-8">{{ $message }}</p>
                     @enderror
                 </div>
             </details>
@@ -361,8 +367,8 @@
             <details class="collapsible-card" open>
                 <summary class="collapsible-summary">
                     <div>
-                        <h2 class="section-heading" style="margin: 0;">Colors</h2>
-                        <p class="section-desc" style="margin: 2px 0 0;">Hex color overrides; blank fields inherit from CSS.</p>
+                        <h2 class="section-heading m-0">Colors</h2>
+                        <p class="section-desc mt-2">Hex color overrides; blank fields inherit from CSS.</p>
                     </div>
                     <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -424,8 +430,8 @@
             <details class="collapsible-card" @if ($hasDimensionOverrides) open @endif>
                 <summary class="collapsible-summary">
                     <div>
-                        <h2 class="section-heading" style="margin: 0;">Dimensions &amp; Shape</h2>
-                        <p class="section-desc" style="margin: 2px 0 0;">Widget width, max height, and border radii (<code>px</code>, <code>rem</code>, <code>vh</code>, etc.).</p>
+                        <h2 class="section-heading m-0">Dimensions &amp; Shape</h2>
+                        <p class="section-desc mt-2">Widget width, max height, and border radii (<code>px</code>, <code>rem</code>, <code>vh</code>, etc.).</p>
                     </div>
                     <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -475,8 +481,8 @@
             <details class="collapsible-card" @if ($hasTypographyOverrides) open @endif>
                 <summary class="collapsible-summary">
                     <div>
-                        <h2 class="section-heading" style="margin: 0;">Typography</h2>
-                        <p class="section-desc" style="margin: 2px 0 0;">Override the base font size or font stack for this survey widget.</p>
+                        <h2 class="section-heading m-0">Typography</h2>
+                        <p class="section-desc mt-2">Override the base font size or font stack for this survey widget.</p>
                     </div>
                     <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -531,9 +537,9 @@
             </details>
 
             <div class="sticky-save-bar">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="sticky-save-meta">
                     <span class="unsaved-pill" id="lss-unsaved-pill">Unsaved changes</span>
-                    <span class="muted" style="font-size: 12px;">
+                    <span class="muted text-12">
                         Empty fields inherit from <code>resources/css/simple-surveys.css</code>.
                     </span>
                 </div>
@@ -546,7 +552,7 @@
             <div class="card">
                 <div class="preview-toolbar">
                     <div class="preview-toolbar-row">
-                        <h2 class="section-heading" style="margin: 0;">Live Preview</h2>
+                        <h2 class="section-heading m-0">Live Preview</h2>
                         <span class="preview-placement-badge">
                             Placement: <strong id="lss-preview-position-label">{{ \DanielCristea\SimpleSurveys\Enums\WidgetPosition::tryFrom($previewPosition)?->label() ?? 'Bottom Right' }}</strong>
                         </span>
@@ -571,7 +577,6 @@
                         data-lss-survey="{{ $survey->key() }}"
                         data-lss-position="{{ $previewPosition }}"
                         data-lss-theme="{{ $previewTheme }}"
-                        @if ($appearance->toInlineStyle() !== '') style="{{ $appearance->toInlineStyle() }}" @endif
                     >
                         {{-- Preview Banner --}}
                         <div class="lss-banner lss-hidden" id="lss-preview-banner">
@@ -722,15 +727,15 @@
             <details class="collapsible-card">
                 <summary class="collapsible-summary">
                     <div>
-                        <h2 class="section-heading" style="margin: 0;">Style in Codebase CSS</h2>
-                        <p class="section-desc" style="margin: 2px 0 0;">Copyable selector for <code>resources/css/simple-surveys.css</code>.</p>
+                        <h2 class="section-heading m-0">Style in Codebase CSS</h2>
+                        <p class="section-desc mt-2">Copyable selector for <code>resources/css/simple-surveys.css</code>.</p>
                     </div>
                     <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
                     </svg>
                 </summary>
                 <div class="collapsible-body">
-                    <pre class="code-snippet" style="margin: 0;"><code>[data-lss-survey="{{ $survey->key() }}"] {
+                    <pre class="code-snippet m-0"><code>[data-lss-survey="{{ $survey->key() }}"] {
     --lss-accent: #4f46e5;
     --lss-bg: #ffffff;
     --lss-card-width: 390px;
@@ -740,7 +745,7 @@
         </div>
     </div>
 
-    <script>
+    <script{!! $cspNonceAttr !!}>
         (function () {
             var form = document.getElementById('lss-appearance-form');
             var unsavedPill = document.getElementById('lss-unsaved-pill');
@@ -808,15 +813,21 @@
                 }
             }
 
+            var previewOverridesStyle = document.getElementById('lss-preview-overrides');
+            var previewOverrideRule = (previewOverridesStyle && previewOverridesStyle.sheet && previewOverridesStyle.sheet.cssRules && previewOverridesStyle.sheet.cssRules.length > 0)
+                ? previewOverridesStyle.sheet.cssRules[0]
+                : null;
+
             function applyStyleToken(input) {
                 var cssVar = input.dataset.cssVar;
                 var tokenKey = input.dataset.styleInput;
                 var val = input.value.trim();
+                var targetStyle = previewOverrideRule ? previewOverrideRule.style : previewRoot.style;
 
                 if (val === '') {
-                    previewRoot.style.removeProperty(cssVar);
+                    targetStyle.removeProperty(cssVar);
                 } else {
-                    previewRoot.style.setProperty(cssVar, val);
+                    targetStyle.setProperty(cssVar, val);
                 }
 
                 syncColorPicker(tokenKey, val);

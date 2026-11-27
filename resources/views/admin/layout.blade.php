@@ -1,10 +1,16 @@
+@php
+    $resolvedCspNonce = array_key_exists('cspNonce', get_defined_vars())
+        ? (is_string($cspNonce) && trim($cspNonce) !== '' ? trim($cspNonce) : null)
+        : app(\DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver::class)->resolve();
+    $cspNonceAttr = $resolvedCspNonce !== null ? ' nonce="'.e($resolvedCspNonce).'"' : '';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Simple Surveys — Admin Results')</title>
-    <script>
+    <script{!! $cspNonceAttr !!}>
         (function () {
             try {
                 var stored = localStorage.getItem('lss-admin-theme') || 'system';
@@ -16,7 +22,7 @@
             } catch (e) {}
         })();
     </script>
-    <style>
+    <style{!! $cspNonceAttr !!}>
         :root {
             --bg: #f8fafc;
             --card: #ffffff;
@@ -2062,6 +2068,37 @@
             overflow-x: auto;
         }
 
+        :where(.stat-bar-fill, .mini-bar-fill, .funnel-fill, .bar-fill) { width: 0; }
+        .m-0 { margin: 0; }
+        .mb-6 { margin-bottom: 6px; }
+        .mb-12 { margin: 0 0 12px; }
+        .mt-2 { margin: 2px 0 0; }
+        .mt-8 { margin-top: 8px; }
+        .flex-1 { flex: 1; }
+        .min-w-0 { min-width: 0; }
+        .nowrap { white-space: nowrap; }
+        .font-semibold { font-weight: 600; }
+        .text-11 { font-size: 11px; }
+        .text-115 { font-size: 11.5px; }
+        .text-12 { font-size: 12px; }
+        .text-125 { font-size: 12.5px; }
+        .page-header-main { min-width: 0; flex: 1; }
+        .survey-title-link { font-weight: 600; color: var(--text); }
+        .survey-sub-meta { font-size: 12px; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .inline-actions { display: inline-flex; align-items: center; gap: 6px; }
+        .question-head-main { display: flex; align-items: flex-start; min-width: 0; }
+        .sticky-save-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .preset-dot-indigo { background: #4f46e5; }
+        .preset-dot-emerald { background: #10b981; }
+        .preset-dot-rose { background: #e11d48; }
+        .preset-dot-amber { background: #d97706; }
+        .preset-dot-sky { background: #0284c7; }
+        .preset-dot-slate { background: #0f172a; }
+        .dropoff-dot-abandoned { background: #f59e0b; }
+        .dropoff-dot-dismissed { background: #94a3b8; }
+        .dropoff-dot-yes { background: var(--chart-yes); }
+        .dropoff-dot-no { background: var(--chart-no); }
+
         @media (max-width: 640px) {
             .topbar { padding: 10px 14px; }
             .container { padding: 16px 14px 48px; }
@@ -2141,7 +2178,7 @@
         </div>
     </div>
 
-    <script>
+    <script{!! $cspNonceAttr !!}>
         (function () {
             /* Theme switcher */
             var themeButtons = document.querySelectorAll('[data-set-theme]');
@@ -2216,6 +2253,15 @@
                 select.addEventListener('change', function () {
                     if (select.value) {
                         window.location.href = select.value;
+                    }
+                });
+            });
+
+            /* Auto-submit filter controls */
+            document.querySelectorAll('[data-auto-submit]').forEach(function (control) {
+                control.addEventListener('change', function () {
+                    if (control.form) {
+                        control.form.submit();
                     }
                 });
             });

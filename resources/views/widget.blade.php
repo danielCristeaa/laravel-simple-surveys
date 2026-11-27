@@ -15,6 +15,10 @@
     $surveyDescription = $translator->description($activeSurvey);
     $surveySubmitLabel = $translator->submitLabel($activeSurvey);
     $surveyThankYouMessage = $translator->thankYouMessage($activeSurvey);
+    $resolvedCspNonce = array_key_exists('cspNonce', get_defined_vars())
+        ? (is_string($cspNonce) && trim($cspNonce) !== '' ? trim($cspNonce) : null)
+        : app(\DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver::class)->resolve();
+    $cspNonceAttr = $resolvedCspNonce !== null ? ' nonce="'.e($resolvedCspNonce).'"' : '';
 @endphp
 
 <div
@@ -25,7 +29,6 @@
     data-lss-survey="{{ $activeSurvey->key() }}"
     data-lss-position="{{ $resolvedPosition }}"
     data-lss-theme="{{ $resolvedTheme }}"
-    @if ($resolvedInlineStyle !== '') style="{{ $resolvedInlineStyle }}" @endif
     data-lss-submit-url="{{ $submitUrl }}"
     data-lss-dismiss-url="{{ $dismissUrl }}"
     data-lss-open-url="{{ $openUrl }}"
@@ -33,7 +36,7 @@
     @if (! empty($respondentHash)) data-lss-respondent="{{ $respondentHash }}" @endif
     data-lss-thank-you="{{ $surveyThankYouMessage }}"
 >
-    <style>{!! WidgetStyles::css() !!}</style>
+    <style{!! $cspNonceAttr !!}>{!! WidgetStyles::css() !!}@if ($resolvedInlineStyle !== '') #{{ $widgetId }}[data-lss-widget] { {!! $resolvedInlineStyle !!} } @endif</style>
 
     <div class="lss-backdrop lss-hidden" data-lss-backdrop aria-hidden="true"></div>
 
@@ -267,7 +270,7 @@
         </div>
     </div>
 
-    <script>
+    <script{!! $cspNonceAttr !!}>
         (function () {
             var root = document.getElementById(@json($widgetId));
             if (!root || root.dataset.lssInitialized === '1') {

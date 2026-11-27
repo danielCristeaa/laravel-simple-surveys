@@ -8,6 +8,7 @@ use DanielCristea\SimpleSurveys\Enums\WidgetPosition;
 use DanielCristea\SimpleSurveys\Enums\WidgetTheme;
 use DanielCristea\SimpleSurveys\PageContext;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Survey;
@@ -44,17 +45,22 @@ final class Widget extends Component
 
     public bool $dynamic;
 
+    public ?string $cspNonce = null;
+
     public function __construct(
         SurveyRegistry $registry,
         SurveyEligibilityResolver $eligibility,
         SurveyAppearanceResolver $appearanceResolver,
+        SurveyCspNonceResolver $cspNonceResolver,
         Request $request,
         ?string $survey = null,
         string $position = 'bottom-right',
         ?string $theme = null,
         ?string $icon = null,
         bool $dynamic = false,
+        ?string $nonce = null,
     ) {
+        $this->cspNonce = $cspNonceResolver->resolve($nonce);
         $defaultPosition = WidgetPosition::tryFrom($position) ?? WidgetPosition::BottomRight;
         $explicitTheme = $theme !== null && $theme !== ''
             ? WidgetTheme::tryFrom($theme)

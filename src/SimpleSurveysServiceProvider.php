@@ -13,6 +13,7 @@ use DanielCristea\SimpleSurveys\Events\SurveySeen;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Http\Middleware\AuthorizeSimpleSurveys;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyCsvExporter;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyLifecycleManager;
@@ -68,6 +69,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyLifecycleManager::class);
         $this->app->singleton(SurveyCsvExporter::class);
         $this->app->singleton(SurveySerializer::class);
+        $this->app->singleton(SurveyCspNonceResolver::class);
         $this->app->singleton(SurveyTrackingContextResolver::class);
         $this->app->singleton(SurveyWebhookPayloadBuilder::class);
         $this->app->singleton(SurveyWebhookDispatcher::class);

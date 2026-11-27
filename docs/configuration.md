@@ -97,10 +97,26 @@ php artisan vendor:publish --tag="simple-surveys-config"
 
 ---
 
+## Content Security Policy (CSP) Nonce
+
+If your application enforces a strict `Content-Security-Policy` with nonces, all inline `<style>` and `<script>` tags across the customer widget, dynamic SPA wrapper, and Admin Results Dashboard emit `nonce="..."` automatically when `Vite::useCspNonce()` is active.
+
+For custom CSP providers (such as `spatie/laravel-csp`), register a per-request resolver in `AppServiceProvider::boot()`:
+
+```php
+use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+
+SimpleSurveys::resolveCspNonce(fn (): ?string => csp_nonce());
+```
+
+Resolution precedence: explicit `<x-simple-surveys::widget nonce="..." />` attribute > `SimpleSurveys::resolveCspNonce(...)` callback > `Vite::cspNonce()`. Blank or `null` values never emit an empty `nonce=""` attribute.
+
+---
+
 ## UUID / ULID User Models & Laravel Octane
 
 - **UUID / ULID primary keys:** Before running `php artisan migrate`, publish `config/simple-surveys.php` and set `'respondent_key_type' => 'uuid'` (or `'ulid'`).
-- **Laravel Octane:** All singletons (`SurveyRegistry`, `SurveyEligibilityResolver`, `SurveyTranslator`, etc.) store only boot-time definitions or stateless services—never per-request user or locale state—making the package Octane-safe out of the box.
+- **Laravel Octane:** All singletons (`SurveyRegistry`, `SurveyEligibilityResolver`, `SurveyTranslator`, `SurveyCspNonceResolver`, etc.) store only boot-time definitions/callbacks or stateless services—never per-request user, locale, or nonce state—making the package Octane-safe out of the box.
 
 ---
 

@@ -51,6 +51,7 @@ If the user is a guest or has no eligible surveys, the component renders nothing
 | `theme` | `'light'` | `'light'`, `'dark'`, `'auto'` (follows `prefers-color-scheme: dark`). |
 | `icon` | `config('simple-surveys.widget.icon')` (`'chat'`) | Built-in preset (`chat`, `star`, `sparkles`, `megaphone`, `clipboard`, `heart`, `lightbulb`, `thumbs-up`, `bell`, `help`), `'none'`, or a relative path under `public/` ending in `.png` or `.svg` (resolved via `asset()`). |
 | `dynamic` | `false` | Boolean flag enabling Dynamic SPA refresh mode. |
+| `nonce` | `null` | Explicit Content-Security-Policy (CSP) nonce applied to inline `<style>` and `<script>` tags, overriding automatic resolution. |
 
 ### Themes & Placements Preview
 
@@ -94,6 +95,27 @@ This lets route/path-targeted surveys (`->onPaths('/billing/*')`) and newly elig
 > **Using Livewire `wire:navigate`?** Wrap the component in `@persist('simple-surveys') ... @endpersist` if you want an open survey card to survive client-side navigations.
 
 > **Building a fully custom React/Vue/Svelte widget?** Use the JSON endpoints documented in [Headless / API-Only Setup](headless-api.md).
+
+---
+
+## Content Security Policy (CSP) Nonce
+
+All inline `<style>` and `<script>` tags rendered by the widget, dynamic SPA wrapper, and Admin Results Dashboard automatically emit a `nonce="..."` attribute whenever a CSP nonce is active (and omit it otherwise).
+
+Resolution precedence:
+
+1. Explicit Blade component attribute (`<x-simple-surveys::widget nonce="..." />`)
+2. Custom callback registered via `SimpleSurveys::resolveCspNonce(...)` (e.g. for `spatie/laravel-csp` or request attributes)
+3. Laravel's built-in `Vite::cspNonce()` (automatic when `Vite::useCspNonce()` is active)
+
+```php
+// AppServiceProvider::boot() — e.g. integration with spatie/laravel-csp
+use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
+
+SimpleSurveys::resolveCspNonce(fn (): ?string => app('csp-nonce'));
+```
+
+In `dynamic` SPA mode, the mount container stores `data-lss-nonce` so fetched widget `<style>` and `<script>` elements preserve the active page nonce on client-side navigations.
 
 ---
 

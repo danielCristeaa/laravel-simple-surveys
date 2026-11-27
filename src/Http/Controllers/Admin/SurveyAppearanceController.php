@@ -9,6 +9,7 @@ use DanielCristea\SimpleSurveys\Enums\WidgetPosition;
 use DanielCristea\SimpleSurveys\Enums\WidgetTheme;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
+use DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveyStatusResolver;
@@ -28,6 +29,7 @@ final class SurveyAppearanceController
         private readonly SurveyAppearanceResolver $appearanceResolver,
         private readonly SurveyResultsAggregator $aggregator,
         private readonly SurveyStatusResolver $statusResolver,
+        private readonly SurveyCspNonceResolver $cspNonceResolver,
     ) {}
 
     public function edit(string $surveyKey): View
@@ -57,6 +59,7 @@ final class SurveyAppearanceController
             'inheritedIcon' => $survey->getIcon() ?? WidgetIcon::fromConfig(),
             'assetBaseUrl' => rtrim(asset(''), '/'),
             'tokens' => SurveyAppearance::STYLE_TOKENS,
+            'cspNonce' => $this->cspNonceResolver->resolve(),
         ]);
     }
 

@@ -10,6 +10,7 @@ use DanielCristea\SimpleSurveys\Contracts\SurveyDefinition;
 use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
+use DanielCristea\SimpleSurveys\Services\SurveyCspNonceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyCsvExporter;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyLifecycleManager;
@@ -36,6 +37,7 @@ final class SimpleSurveys
         private readonly SurveyResultsAggregator $resultsAggregator,
         private readonly SurveyLifecycleManager $lifecycle,
         private readonly SurveyCsvExporter $csvExporter,
+        private readonly SurveyCspNonceResolver $cspNonceResolver,
     ) {}
 
     /**
@@ -77,6 +79,7 @@ final class SimpleSurveys
         $this->registry->clear();
         $this->trackingContext->clear();
         $this->notificationDispatcher->clear();
+        $this->cspNonceResolver->clear();
     }
 
     public function resolveTrackingContext(?Closure $callback): void
@@ -87,6 +90,19 @@ final class SimpleSurveys
     public function resolveNotifiables(?Closure $callback): void
     {
         $this->notificationDispatcher->resolveNotifiablesUsing($callback);
+    }
+
+    /**
+     * @param  (Closure(): mixed)|null  $callback
+     */
+    public function resolveCspNonce(?Closure $callback): void
+    {
+        $this->cspNonceResolver->resolveUsing($callback);
+    }
+
+    public function cspNonce(?string $explicit = null): ?string
+    {
+        return $this->cspNonceResolver->resolve($explicit);
     }
 
     public function forUser(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): ?Survey

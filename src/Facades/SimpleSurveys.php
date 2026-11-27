@@ -27,6 +27,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * @method static void clear()
  * @method static void resolveTrackingContext(?Closure $callback)
  * @method static void resolveNotifiables(?Closure $callback)
+ * @method static void resolveCspNonce(?Closure $callback)
+ * @method static string|null cspNonce(?string $explicit = null)
  * @method static Survey|null forUser(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null)
  * @method static Collection<int, Survey> eligibleFor(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null)
  * @method static bool isEligible(Survey|string $survey, ?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null)
