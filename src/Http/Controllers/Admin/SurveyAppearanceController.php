@@ -10,6 +10,7 @@ use DanielCristea\SimpleSurveys\Enums\WidgetTheme;
 use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\SurveyAppearance;
@@ -24,6 +25,7 @@ final class SurveyAppearanceController
         private readonly SurveyRegistry $registry,
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyAppearanceResolver $appearanceResolver,
+        private readonly SurveyResultsAggregator $aggregator,
     ) {}
 
     public function edit(string $surveyKey): View
@@ -31,9 +33,10 @@ final class SurveyAppearanceController
         $this->ensureEditorEnabled();
 
         $survey = $this->findRegisteredSurvey($surveyKey);
-        $record = SurveyRecord::query()->byKey($surveyKey)->first();
+        $record = SurveyRecord::query()->byKey($surveyKey)->withCount('responses')->first();
         $appearance = $this->appearanceResolver->fromRecord($record);
         $status = $record !== null ? $record->status : $survey->status();
+        $responsesCount = $record !== null ? (int) $record->getAttribute('responses_count') : 0;
 
         /** @var view-string $view */
         $view = 'simple-surveys::admin.appearance';
@@ -41,6 +44,10 @@ final class SurveyAppearanceController
         return view($view, [
             'survey' => $survey,
             'status' => $status,
+            'priority' => $survey->getPriority(),
+            'questionsCount' => count($survey->getQuestions()),
+            'responsesCount' => $responsesCount,
+            'surveyOptions' => $this->aggregator->surveyOptions(),
             'appearance' => $appearance,
             'positions' => WidgetPosition::cases(),
             'themes' => WidgetTheme::cases(),

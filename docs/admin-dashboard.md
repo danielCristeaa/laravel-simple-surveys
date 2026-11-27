@@ -2,7 +2,7 @@
 
 # Admin Results Dashboard
 
-Simple Surveys ships with a self-contained, Gate-protected Admin Dashboard at `/simple-surveys/admin` (configurable in `config/simple-surveys.php`)—no frontend build step required.
+Simple Surveys ships with a self-contained, Gate-protected Admin Dashboard at `/simple-surveys/admin` (configurable in `config/simple-surveys.php`)—with built-in **Light / System / Dark** mode, inline SVG charts, search & filtering, and zero frontend build step or external chart libraries required.
 
 ![Admin Results Dashboard overview](assets/admin-overview.png)
 
@@ -24,9 +24,15 @@ Any user who fails the Gate receives `403 Forbidden`. You can change the Gate na
 
 ---
 
-## Overview & Funnel Metrics
+## Overview, Filtering & Funnel Metrics
 
 The overview page lists every code-registered survey (active, scheduled, draft, closed) plus historical/archived database surveys whose PHP definitions have since been removed.
+
+At the top of the overview page:
+- **4 summary KPI cards:** **Surveys** (active vs. other), **Avg Response Rate** (`Responses / Seen`), **Avg Completion Rate** (`Responses / Opened`), and **Avg Completion Time** (computed across responses with recorded `duration_ms`).
+- **Search, status filter pills, and sorting:** Filter by status (`All`, `Active`, `Scheduled`, `Draft`, `Closed`, `Archived`), search by title, key, or description, and sort by `Priority`, `Most Responses`, `Most Seen`, `Response Rate`, `Completion Rate`, or `Title`.
+- **Read-only Priority column:** Displays each survey's configured `->priority(...)` value (higher priority surveys display first when multiple surveys match a user).
+- **Theme switcher:** Toggle **Light**, **System**, or **Dark** mode from the topbar (persisted in `localStorage`).
 
 Each survey reports the full conversion funnel:
 
@@ -42,37 +48,50 @@ Each survey reports the full conversion funnel:
 
 ---
 
-## Per-Survey Analytics
+## Per-Survey Analytics & Tabs
 
-Clicking any survey opens `/simple-surveys/admin/{surveyKey}` with:
+Clicking any survey opens `/simple-surveys/admin/{surveyKey}` with a breadcrumb **survey switcher**, compact metadata strip (`key`, read-only `Priority`, question count, schedule window), a date range switcher (**`All`**, **`7d`**, **`30d`**, **`90d`**), and three dedicated tabs:
+
+### 1. Results & Metrics Tab
 
 ![Admin Survey Results and question analytics](assets/admin-results.png)
 
-- **Funnel summary cards** for that survey.
-- **Per-question breakdowns** computed directly via SQL:
-  - `rating` & `number`: average, min, max (plus score distribution bars for ratings).
-  - `select`, `radio`, `checkbox`, `boolean`: option counts and percentage bars (historical removed option values are preserved cleanly).
-  - `text` & `textarea`: total answer count and the 20 most recent responses.
-- **Paginated individual responses** table showing respondent ID, submission timestamp, respondent `locale` (when recorded), duration, and answers.
+![Admin Survey Question Charts in Dark Mode](assets/admin-results-dark.png)
+
+- **Compact 5-card KPI strip** (`Seen`, `Opened`, `Responses`, `Response Rate`, `Completion Rate`).
+- **Conversion Funnel & Responses Over Time:** Visual `Seen → Opened → Submitted` funnel bars (with `Abandoned` & `Dismissals` drop-off chips) paired with an interactive inline SVG time-series bar chart.
+- **Respondent Locales strip:** Clickable locale breakdown chips whenever responses carry recorded `locale` metadata.
+- **Uniform 2-column scrollable question grid** (with a `Filter questions...` search bar for 4+ questions) and tailored inline SVG visualizations:
+  - `rating`: Average / Min / Max hero + clickable vertical SVG bar histogram, plus automatic **Net Promoter Score (NPS)** breakdown for `0–10` scales.
+  - `boolean`: Inline SVG donut chart + split Yes/No bar with clickable filter pills.
+  - `number`: Average / Min / Max hero + inline SVG bucket histogram.
+  - `select`, `radio`, `checkbox`: Clickable horizontal distribution bars (historical removed option values are preserved cleanly).
+  - `text` & `textarea`: Scrollable quote list with timestamps and inline search (for 4+ answers).
+- **Chart-to-response cross-filtering:** Clicking any rating bar, Yes/No pill, choice bar, or locale chip jumps directly to the **Responses** tab pre-filtered to matching respondents.
+
+### 2. Responses Tab
+
+- Dedicated searchable, paginated table (`?tab=responses`) with **search** (respondent ID, page URL, or answer text), **Locale filter**, **active chart cross-filter chip**, **date range filter**, and **per-page selector** (`15` / `25` / `50`).
+- **Slide-over Response Detail Drawer:** Click any row (or **Inspect**) to view full untruncated answers, respondent metadata, locale, page URL, duration, and captured tracking context cookies without leaving the page.
 
 ---
 
 ## Lifecycle Controls & CSV Export
 
-From a survey's detail header, authorized admins can manage live surveys without redeploying:
+From a survey's detail header (and the `···` overflow menu for destructive actions), authorized admins can manage live surveys without redeploying:
 
 | Action | Route | Effect |
 | :--- | :--- | :--- |
 | **End Survey Now** | `POST /{adminPrefix}/{key}/close` | Syncs the survey if needed and sets DB status to `closed`, immediately stopping new widget renders and submissions. |
 | **Re-open Survey** | `POST /{adminPrefix}/{key}/reopen` | Sets DB status back to `active` so eligible respondents can participate again. |
-| **Reset Responses** | `POST /{adminPrefix}/{key}/reset` | Prompts with a confirmation modal, then clears responses, answers, dismissals, opens, and impressions for that survey (great for clearing QA data before launch). |
+| **Reset Responses** *(in `···` menu)* | `POST /{adminPrefix}/{key}/reset` | Prompts with a confirmation modal, then clears responses, answers, dismissals, opens, and impressions for that survey (great for clearing QA data before launch). |
 | **Export CSV** | `GET /{adminPrefix}/{key}/export` | Streams a UTF-8 CSV of every response and answer column—automatically appending `Locale`, `Duration (ms)`, and any resolved [tracking context](analytics-and-tracking.md) columns. |
 
 ---
 
 ## Appearance Tab
 
-Click the **Appearance** tab on any registered survey to customize theme, placement, banner icon, colors, dimensions, and typography with a live preview.
+Click the **Appearance** tab on any registered survey to customize theme, placement, banner icon, colors, dimensions, and typography with a live preview, collapsible sections, and a sticky **Save Appearance** bar with unsaved-changes tracking.
 
 ![Admin Appearance tab in dark mode](assets/admin-appearance-dark.png)
 

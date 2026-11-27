@@ -160,9 +160,9 @@ it('aggregates all question types accurately and renders the show page', functio
     $this->actingAs($admin)
         ->get(route('simple-surveys.admin.index'))
         ->assertOk()
-        ->assertSee('Total Seen')
-        ->assertSee('Response Rate')
-        ->assertSee('Completion Rate')
+        ->assertSee('Avg Response Rate')
+        ->assertSee('Avg Completion Rate')
+        ->assertSee('Avg Completion Time')
         ->assertSee('40%')
         ->assertSee('66.7%');
 
@@ -405,4 +405,296 @@ it('allows an authorized admin to reset all responses and dismissals for a surve
             'feedback' => 'Submitted again after reset!',
         ],
     ])->assertCreated();
+});
+
+it('supports searching, status filtering, sorting, and read-only priority display on the admin index', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com']);
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+
+    SimpleSurveys::register(Survey::make('legacy-archived')->title('Legacy Archived')->priority(5));
+    SimpleSurveys::sync();
+    SimpleSurveys::clear();
+
+    SimpleSurveys::register(
+        Survey::make('billing-pulse')
+            ->title('Billing Pulse')
+            ->priority(50)
+            ->questions([Question::rating('score', 'Score')->scale(1, 5)->required()])
+    );
+    SimpleSurveys::register(
+        Survey::make('alpha-onboarding')
+            ->title('Alpha Onboarding')
+            ->priority(10)
+            ->questions([Question::rating('score', 'Score')->scale(1, 5)->required()])
+    );
+    SimpleSurveys::register(
+        Survey::make('draft-ideas')
+            ->title('Draft Ideas')
+            ->priority(0)
+            ->draft()
+    );
+
+    // Give alpha-onboarding 2 timed responses (10s & 20s -> 15s avg) and billing-pulse 1 response
+    $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'alpha-onboarding'), ['answers' => ['score' => 5], 'duration_ms' => 10000])->assertCreated();
+    $this->actingAs($bob)->postJson(route('simple-surveys.responses.store', 'alpha-onboarding'), ['answers' => ['score' => 4], 'duration_ms' => 20000])->assertCreated();
+    $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'billing-pulse'), ['answers' => ['score' => 5]])->assertCreated();
+
+    // Default sort is priority descending (Billing Pulse [50] -> Alpha Onboarding [10] -> Legacy Archived [5] -> Draft Ideas [0])
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index'))
+        ->assertOk()
+        ->assertSee('Priority')
+        ->assertSee('Avg Completion Time')
+        ->assertSee('15s')
+        ->assertSee('Across 2 responses')
+        ->assertSee('data-set-theme="dark"', false)
+        ->assertSeeInOrder(['Billing Pulse', '50', 'Alpha Onboarding', '10', 'Legacy Archived', '5', 'Draft Ideas']);
+
+    // Status filter: draft
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['status' => 'draft']))
+        ->assertOk()
+        ->assertSee('Draft Ideas')
+        ->assertDontSee('Billing Pulse')
+        ->assertDontSee('Legacy Archived');
+
+    // Status filter: archived
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['status' => 'archived']))
+        ->assertOk()
+        ->assertSee('Legacy Archived')
+        ->assertDontSee('Billing Pulse');
+
+    // Search query
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['q' => 'billing']))
+        ->assertOk()
+        ->assertSee('Billing Pulse')
+        ->assertDontSee('Alpha Onboarding');
+
+    // Empty search state
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['q' => 'nonexistent-xyz']))
+        ->assertOk()
+        ->assertSee('No surveys match your current filters')
+        ->assertSee('Clear filters');
+
+    // Sort by responses descending (Alpha Onboarding [2] before Billing Pulse [1])
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['sort' => 'responses']))
+        ->assertOk()
+        ->assertSeeInOrder(['Alpha Onboarding', 'Billing Pulse']);
+
+    // Sort by title ascending (Alpha Onboarding before Billing Pulse)
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['sort' => 'title']))
+        ->assertOk()
+        ->assertSeeInOrder(['Alpha Onboarding', 'Billing Pulse', 'Draft Ideas', 'Legacy Archived']);
+});
+
+it('renders tabbed overview charts, nps/histograms, and filtered responses tab with date ranges', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com']);
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $clara = User::create(['name' => 'Clara', 'email' => 'clara@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('detailed-nps')
+            ->title('Detailed NPS')
+            ->priority(25)
+            ->questions([
+                Question::rating('nps', 'Likelihood to recommend')->scale(0, 10)->required(),
+                Question::number('team_size', 'Team Size')->min(1)->max(500),
+                Question::select('source', 'Discovery Source')->options(['google' => 'Google', 'friend' => 'Friend']),
+                Question::checkbox('features', 'Used Features')->options(['api' => 'API', 'ui' => 'UI']),
+                Question::boolean('recommend', 'Would you return?'),
+                Question::textarea('notes', 'Additional Notes'),
+            ])
+    );
+
+    // Recent French response from Alice
+    app()->setLocale('fr');
+    $this->actingAs($alice)->postJson(route('simple-surveys.impression', 'detailed-nps'))->assertOk();
+    $this->actingAs($alice)->postJson(route('simple-surveys.open', 'detailed-nps'))->assertOk();
+    $this->actingAs($alice)->postJson(route('simple-surveys.responses.store', 'detailed-nps'), [
+        'answers' => [
+            'nps' => 10,
+            'team_size' => 12,
+            'source' => 'google',
+            'features' => ['api', 'ui'],
+            'recommend' => true,
+            'notes' => 'Superbe produit!',
+        ],
+        'url' => '/fr/dashboard',
+    ])->assertCreated();
+
+    // Recent English response from Bob
+    app()->setLocale('en');
+    $this->actingAs($bob)->postJson(route('simple-surveys.impression', 'detailed-nps'))->assertOk();
+    $this->actingAs($bob)->postJson(route('simple-surveys.open', 'detailed-nps'))->assertOk();
+    $this->actingAs($bob)->postJson(route('simple-surveys.responses.store', 'detailed-nps'), [
+        'answers' => [
+            'nps' => 5,
+            'team_size' => 45,
+            'source' => 'friend',
+            'features' => ['ui'],
+            'recommend' => false,
+            'notes' => 'Needs dark mode.',
+        ],
+        'url' => '/billing',
+    ])->assertCreated();
+
+    // Old English response from Clara (45 days ago)
+    $this->actingAs($clara)->postJson(route('simple-surveys.responses.store', 'detailed-nps'), [
+        'answers' => [
+            'nps' => 8,
+            'team_size' => 80,
+            'source' => 'google',
+            'features' => ['api'],
+            'recommend' => true,
+            'notes' => 'Older response text.',
+        ],
+        'url' => '/legacy',
+    ])->assertCreated();
+
+    $oldResponse = SurveyResponse::query()->forRespondent($clara)->firstOrFail();
+    $oldResponse->forceFill(['created_at' => now()->subDays(45), 'updated_at' => now()->subDays(45)])->save();
+    SurveyAnswer::query()->where('response_id', $oldResponse->id)->update(['created_at' => now()->subDays(45)]);
+
+    // Overview tab: metadata, funnel, trend SVG, NPS, locales strip, and NO full responses table
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'detailed-nps'))
+        ->assertOk()
+        ->assertSee('Priority: 25')
+        ->assertSee('6 questions')
+        ->assertSee('Conversion Funnel')
+        ->assertSee('Responses Over Time')
+        ->assertSee('Net Promoter Score (NPS)')
+        ->assertSee('<code>fr</code>', false)
+        ->assertSee('<code>en</code>', false)
+        ->assertDontSee('id="lss-response-drawer"', false);
+
+    // Responses tab: table, drawer, showing count
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', ['surveyKey' => 'detailed-nps', 'tab' => 'responses']))
+        ->assertOk()
+        ->assertSee('id="lss-response-drawer"', false)
+        ->assertSee('Showing 1–3 of 3 responses')
+        ->assertSee('Superbe produit!')
+        ->assertSee('Needs dark mode.')
+        ->assertSee('Older response text.');
+
+    // Responses tab filtered by search query
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', ['surveyKey' => 'detailed-nps', 'tab' => 'responses', 'q' => 'dark mode']))
+        ->assertOk()
+        ->assertSee('Needs dark mode.')
+        ->assertDontSee('Superbe produit!');
+
+    // Responses tab filtered by locale
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', ['surveyKey' => 'detailed-nps', 'tab' => 'responses', 'locale' => 'fr']))
+        ->assertOk()
+        ->assertSee('Superbe produit!')
+        ->assertDontSee('Needs dark mode.');
+
+    // Responses tab cross-filtered by choice answer
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', ['surveyKey' => 'detailed-nps', 'tab' => 'responses', 'question' => 'source', 'answer' => 'friend']))
+        ->assertOk()
+        ->assertSee('Needs dark mode.')
+        ->assertDontSee('Superbe produit!');
+
+    // Responses tab cross-filtered by checkbox answer
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', ['surveyKey' => 'detailed-nps', 'tab' => 'responses', 'question' => 'features', 'answer' => 'api']))
+        ->assertOk()
+        ->assertSee('Superbe produit!')
+        ->assertSee('Older response text.')
+        ->assertDontSee('Needs dark mode.');
+
+    // Date range filter (7d) excludes Clara's 45-day-old response
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', ['surveyKey' => 'detailed-nps', 'tab' => 'responses', 'range' => '7d']))
+        ->assertOk()
+        ->assertSee('Showing 1–2 of 2 responses')
+        ->assertSee('Superbe produit!')
+        ->assertSee('Needs dark mode.')
+        ->assertDontSee('Older response text.');
+
+    // Appearance tab shows unified 3-tab bar, read-only priority, collapsible cards, and sticky save bar
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.appearance.edit', 'detailed-nps'))
+        ->assertOk()
+        ->assertSee('Priority: 25')
+        ->assertSee('Results &amp; Metrics', false)
+        ->assertSee('Responses')
+        ->assertSee('lss-unsaved-pill', false);
+});
+
+it('preserves answer=0 in boolean, nps rating, choice cross-filter links, date-range links, and renders 0-10 in appearance preview', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $yesUser = User::create(['name' => 'Yes User', 'email' => 'yes@example.com']);
+    $noUser = User::create(['name' => 'No User', 'email' => 'no@example.com']);
+
+    SimpleSurveys::register(
+        Survey::make('zero-value-test')
+            ->title('Zero Value Test')
+            ->questions([
+                Question::rating('nps', 'NPS Score')->scale(0, 10)->required(),
+                Question::boolean('recommend', 'Would you recommend us?')->required(),
+                Question::select('tier', 'Plan Tier')->options(['0' => 'Free', 'pro' => 'Pro']),
+                Question::text('note', 'Note'),
+            ])
+    );
+
+    $this->actingAs($yesUser)->postJson(route('simple-surveys.responses.store', 'zero-value-test'), [
+        'answers' => [
+            'nps' => 10,
+            'recommend' => true,
+            'tier' => 'pro',
+            'note' => 'Happy promoter',
+        ],
+    ])->assertCreated();
+
+    $this->actingAs($noUser)->postJson(route('simple-surveys.responses.store', 'zero-value-test'), [
+        'answers' => [
+            'nps' => 0,
+            'recommend' => false,
+            'tier' => '0',
+            'note' => 'Zero detractor',
+        ],
+    ])->assertCreated();
+
+    // Overview tab must include answer=0 on Boolean No, NPS 0 bar, and '0' select choice links
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'zero-value-test'))
+        ->assertOk()
+        ->assertSee('question=recommend&amp;answer=0', false)
+        ->assertSee('question=nps&amp;answer=0', false)
+        ->assertSee('question=tier&amp;answer=0', false);
+
+    // Filtering Responses tab by answer=0 returns strictly the false/zero respondent and preserves answer=0 on date-range links
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', [
+            'surveyKey' => 'zero-value-test',
+            'tab' => 'responses',
+            'question' => 'recommend',
+            'answer' => '0',
+        ]))
+        ->assertOk()
+        ->assertSee('Zero detractor')
+        ->assertDontSee('Happy promoter')
+        ->assertSee('Would you recommend us? = 0')
+        ->assertSee('range=7d&amp;question=recommend&amp;answer=0', false);
+
+    // Appearance Live Preview must render all 11 options (0..10) for a 0-10 rating scale
+    $appearanceResponse = $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.appearance.edit', 'zero-value-test'))
+        ->assertOk()
+        ->assertSee('<span>0</span>', false)
+        ->assertSee('<span>10</span>', false);
+
+    expect(substr_count($appearanceResponse->getContent(), 'name="preview_nps"'))->toBe(11);
 });

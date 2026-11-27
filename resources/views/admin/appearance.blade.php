@@ -44,30 +44,77 @@
             'url' => $inheritedIcon->assetUrl(),
         ];
 
+        $hasDimensionOverrides = false;
+        foreach ($dimensionTokens as $tk => $m) {
+            if ((string) old('styles.' . $tk, $appearance->style($tk) ?? '') !== '' || $errors->has('styles.' . $tk)) {
+                $hasDimensionOverrides = true;
+                break;
+            }
+        }
+
+        $hasTypographyOverrides = false;
+        foreach ($typographyTokens as $tk => $m) {
+            if ((string) old('styles.' . $tk, $appearance->style($tk) ?? '') !== '' || $errors->has('styles.' . $tk)) {
+                $hasTypographyOverrides = true;
+                break;
+            }
+        }
+
         $previewTheme = $selectedTheme !== '' ? $selectedTheme : 'light';
         $previewPosition = $selectedPosition !== '' ? $selectedPosition : 'bottom-right';
         $previewQuestions = array_slice($survey->getQuestions(), 0, 3);
+        $surveyOptions = $surveyOptions ?? [];
+        $priority = $priority ?? $survey->getPriority();
+        $questionsCount = $questionsCount ?? count($survey->getQuestions());
+        $responsesCount = $responsesCount ?? 0;
     @endphp
 
     <style>{!! WidgetStyles::css() !!}</style>
 
-    <div style="margin-bottom: 14px;">
-        <a href="{{ route('simple-surveys.admin.index') }}">&larr; All Surveys</a>
+    <div class="breadcrumb-bar">
+        <a href="{{ route('simple-surveys.admin.index') }}" class="breadcrumb-link">&larr; All Surveys</a>
+        @if (count($surveyOptions) > 1)
+            <span class="breadcrumb-sep" aria-hidden="true">/</span>
+            <select class="survey-switcher" data-survey-switcher aria-label="Switch survey">
+                @foreach ($surveyOptions as $opt)
+                    @if ($opt['registered'])
+                        <option
+                            value="{{ route('simple-surveys.admin.appearance.edit', $opt['key']) }}"
+                            @selected($opt['key'] === $survey->key())
+                        >
+                            {{ $opt['title'] }} ({{ $opt['status']->value }})
+                        </option>
+                    @endif
+                @endforeach
+            </select>
+        @endif
     </div>
 
     <div class="page-header">
-        <div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div style="min-width: 0; flex: 1;">
+            <div class="page-title-row">
                 <h1 class="page-title">{{ $survey->getTitle() }}</h1>
-                <span class="badge badge-{{ $status->value }}">{{ $status->value }}</span>
+                <span class="badge badge-{{ $status->value }}">
+                    <span class="badge-dot" aria-hidden="true"></span>
+                    {{ $status->value }}
+                </span>
             </div>
             @if ($survey->getDescription())
                 <p class="page-subtitle">{{ $survey->getDescription() }}</p>
             @endif
+            <div class="meta-strip">
+                <code>{{ $survey->key() }}</code>
+                <span class="meta-pill {{ $priority > 0 ? 'meta-pill-accent' : '' }}" title="Higher priority surveys are shown first when multiple surveys match">
+                    Priority: {{ $priority }}
+                </span>
+                <span class="meta-pill">
+                    {{ $questionsCount }} {{ $questionsCount === 1 ? 'question' : 'questions' }}
+                </span>
+            </div>
         </div>
 
         @if (! $appearance->isEmpty())
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="header-actions">
                 <form
                     method="POST"
                     action="{{ route('simple-surveys.admin.appearance.reset', $survey->key()) }}"
@@ -85,14 +132,20 @@
         @endif
     </div>
 
-    <nav class="tabs" aria-label="Survey sections">
-        <a href="{{ route('simple-surveys.admin.show', $survey->key()) }}" class="tab-link">
-            Results &amp; Metrics
-        </a>
-        <a href="{{ route('simple-surveys.admin.appearance.edit', $survey->key()) }}" class="tab-link is-active" aria-current="page">
-            Appearance
-        </a>
-    </nav>
+    <div class="tabs-bar">
+        <nav class="tabs" aria-label="Survey sections">
+            <a href="{{ route('simple-surveys.admin.show', $survey->key()) }}" class="tab-link">
+                Results &amp; Metrics
+            </a>
+            <a href="{{ route('simple-surveys.admin.show', ['surveyKey' => $survey->key(), 'tab' => 'responses']) }}" class="tab-link">
+                <span>Responses</span>
+                <span class="tab-count">{{ number_format($responsesCount) }}</span>
+            </a>
+            <a href="{{ route('simple-surveys.admin.appearance.edit', $survey->key()) }}" class="tab-link is-active" aria-current="page">
+                Appearance
+            </a>
+        </nav>
+    </div>
 
     @if ($errors->any())
         <div class="alert-error" role="alert">
@@ -116,336 +169,374 @@
             @method('PUT')
 
             {{-- Presets & Placement --}}
-            <div class="card">
-                <h2 class="section-heading">Presets &amp; Placement</h2>
-                <p class="section-desc">
-                    Choose a theme mode and screen position for this survey. Leave any field on <strong>Inherit</strong> to defer to your Blade component or CSS.
-                </p>
+            <details class="collapsible-card" open>
+                <summary class="collapsible-summary">
+                    <div>
+                        <h2 class="section-heading" style="margin: 0;">Presets &amp; Placement</h2>
+                        <p class="section-desc" style="margin: 2px 0 0;">Theme preset, screen position, and quick accent palettes.</p>
+                    </div>
+                    <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
 
-                <div class="form-grid">
-                    <div class="form-field">
-                        <label class="form-label" for="lss-field-theme">Theme Preset</label>
-                        <select id="lss-field-theme" name="theme" class="form-control" data-preview-theme>
-                            <option value="" @selected($selectedTheme === '')>Inherit (Default)</option>
-                            @foreach ($themes as $themeCase)
-                                <option value="{{ $themeCase->value }}" @selected($selectedTheme === $themeCase->value)>
-                                    {{ $themeCase->label() }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('theme')
-                            <p class="form-error">{{ $message }}</p>
-                        @enderror
+                <div class="collapsible-body">
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label class="form-label" for="lss-field-theme">Theme Preset</label>
+                            <select id="lss-field-theme" name="theme" class="form-control" data-preview-theme>
+                                <option value="" @selected($selectedTheme === '')>Inherit (Default)</option>
+                                @foreach ($themes as $themeCase)
+                                    <option value="{{ $themeCase->value }}" @selected($selectedTheme === $themeCase->value)>
+                                        {{ $themeCase->label() }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('theme')
+                                <p class="form-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label" for="lss-field-position">Widget Placement</label>
+                            <select id="lss-field-position" name="position" class="form-control" data-preview-position>
+                                <option value="" @selected($selectedPosition === '')>Inherit (Default)</option>
+                                @foreach ($positions as $positionCase)
+                                    <option value="{{ $positionCase->value }}" @selected($selectedPosition === $positionCase->value)>
+                                        {{ $positionCase->label() }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('position')
+                                <p class="form-error">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
 
-                    <div class="form-field">
-                        <label class="form-label" for="lss-field-position">Widget Placement</label>
-                        <select id="lss-field-position" name="position" class="form-control" data-preview-position>
-                            <option value="" @selected($selectedPosition === '')>Inherit (Default)</option>
-                            @foreach ($positions as $positionCase)
-                                <option value="{{ $positionCase->value }}" @selected($selectedPosition === $positionCase->value)>
-                                    {{ $positionCase->label() }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('position')
-                            <p class="form-error">{{ $message }}</p>
-                        @enderror
+                    <div class="preset-chips" aria-label="Quick accent palettes">
+                        <button type="button" class="preset-chip" data-palette-accent="#4f46e5" data-palette-hover="#4338ca" data-palette-btn-text="#ffffff">
+                            <span class="preset-dot" style="background: #4f46e5;"></span> Indigo
+                        </button>
+                        <button type="button" class="preset-chip" data-palette-accent="#10b981" data-palette-hover="#059669" data-palette-btn-text="#ffffff">
+                            <span class="preset-dot" style="background: #10b981;"></span> Emerald
+                        </button>
+                        <button type="button" class="preset-chip" data-palette-accent="#e11d48" data-palette-hover="#be123c" data-palette-btn-text="#ffffff">
+                            <span class="preset-dot" style="background: #e11d48;"></span> Rose
+                        </button>
+                        <button type="button" class="preset-chip" data-palette-accent="#d97706" data-palette-hover="#b45309" data-palette-btn-text="#ffffff">
+                            <span class="preset-dot" style="background: #d97706;"></span> Amber
+                        </button>
+                        <button type="button" class="preset-chip" data-palette-accent="#0284c7" data-palette-hover="#0369a1" data-palette-btn-text="#ffffff">
+                            <span class="preset-dot" style="background: #0284c7;"></span> Sky
+                        </button>
+                        <button type="button" class="preset-chip" data-palette-accent="#0f172a" data-palette-hover="#1e293b" data-palette-btn-text="#ffffff">
+                            <span class="preset-dot" style="background: #0f172a;"></span> Slate
+                        </button>
                     </div>
                 </div>
-
-                <div class="preset-chips" aria-label="Quick accent palettes">
-                    <button type="button" class="preset-chip" data-palette-accent="#4f46e5" data-palette-hover="#4338ca" data-palette-btn-text="#ffffff">
-                        <span class="preset-dot" style="background: #4f46e5;"></span> Indigo
-                    </button>
-                    <button type="button" class="preset-chip" data-palette-accent="#10b981" data-palette-hover="#059669" data-palette-btn-text="#ffffff">
-                        <span class="preset-dot" style="background: #10b981;"></span> Emerald
-                    </button>
-                    <button type="button" class="preset-chip" data-palette-accent="#e11d48" data-palette-hover="#be123c" data-palette-btn-text="#ffffff">
-                        <span class="preset-dot" style="background: #e11d48;"></span> Rose
-                    </button>
-                    <button type="button" class="preset-chip" data-palette-accent="#d97706" data-palette-hover="#b45309" data-palette-btn-text="#ffffff">
-                        <span class="preset-dot" style="background: #d97706;"></span> Amber
-                    </button>
-                    <button type="button" class="preset-chip" data-palette-accent="#0284c7" data-palette-hover="#0369a1" data-palette-btn-text="#ffffff">
-                        <span class="preset-dot" style="background: #0284c7;"></span> Sky
-                    </button>
-                    <button type="button" class="preset-chip" data-palette-accent="#0f172a" data-palette-hover="#1e293b" data-palette-btn-text="#ffffff">
-                        <span class="preset-dot" style="background: #0f172a;"></span> Slate
-                    </button>
-                </div>
-            </div>
+            </details>
 
             {{-- Banner Icon --}}
-            <div class="card">
-                <h2 class="section-heading">Banner Icon</h2>
-                <p class="section-desc">
-                    Pick a built-in preset icon, hide the icon, or point to a custom <code>.png</code> or <code>.svg</code> file inside your app's <code>public/</code> directory.
-                </p>
+            <details class="collapsible-card" open>
+                <summary class="collapsible-summary">
+                    <div>
+                        <h2 class="section-heading" style="margin: 0;">Banner Icon</h2>
+                        <p class="section-desc" style="margin: 2px 0 0;">Built-in presets, hidden icon, or custom <code>public/</code> image.</p>
+                    </div>
+                    <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
 
-                <input type="hidden" name="icon" id="lss-field-icon" value="{{ $selectedIconRaw }}">
+                <div class="collapsible-body">
+                    <input type="hidden" name="icon" id="lss-field-icon" value="{{ $selectedIconRaw }}">
 
-                <div class="icon-picker-grid" role="group" aria-label="Banner icon selection">
-                    <button
-                        type="button"
-                        class="icon-tile {{ $selectedIconMode === 'inherit' ? 'is-selected' : '' }}"
-                        data-icon-choice="inherit"
-                        aria-pressed="{{ $selectedIconMode === 'inherit' ? 'true' : 'false' }}"
-                    >
-                        <span class="icon-tile-glyph" aria-hidden="true">
-                            @if ($inheritedIcon->isPreset())
-                                {!! $inheritedIcon->svg() !!}
-                            @elseif ($inheritedIcon->isAsset())
-                                <img src="{{ $inheritedIcon->assetUrl() }}" alt="">
-                            @else
+                    <div class="icon-picker-grid" role="group" aria-label="Banner icon selection">
+                        <button
+                            type="button"
+                            class="icon-tile {{ $selectedIconMode === 'inherit' ? 'is-selected' : '' }}"
+                            data-icon-choice="inherit"
+                            aria-pressed="{{ $selectedIconMode === 'inherit' ? 'true' : 'false' }}"
+                        >
+                            <span class="icon-tile-glyph" aria-hidden="true">
+                                @if ($inheritedIcon->isPreset())
+                                    {!! $inheritedIcon->svg() !!}
+                                @elseif ($inheritedIcon->isAsset())
+                                    <img src="{{ $inheritedIcon->assetUrl() }}" alt="">
+                                @else
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                    </svg>
+                                @endif
+                            </span>
+                            <span>Inherit ({{ $inheritedIcon->label() }})</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="icon-tile {{ $selectedIconMode === 'none' ? 'is-selected' : '' }}"
+                            data-icon-choice="none"
+                            aria-pressed="{{ $selectedIconMode === 'none' ? 'true' : 'false' }}"
+                        >
+                            <span class="icon-tile-glyph" aria-hidden="true">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                                 </svg>
-                            @endif
-                        </span>
-                        <span>Inherit ({{ $inheritedIcon->label() }})</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        class="icon-tile {{ $selectedIconMode === 'none' ? 'is-selected' : '' }}"
-                        data-icon-choice="none"
-                        aria-pressed="{{ $selectedIconMode === 'none' ? 'true' : 'false' }}"
-                    >
-                        <span class="icon-tile-glyph" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                            </svg>
-                        </span>
-                        <span>Hidden</span>
-                    </button>
-
-                    @foreach ($iconPresets as $presetCase)
-                        @php
-                            $isPresetSelected = $selectedIconMode === 'preset' && $selectedIconRaw === $presetCase->value;
-                        @endphp
-                        <button
-                            type="button"
-                            class="icon-tile {{ $isPresetSelected ? 'is-selected' : '' }}"
-                            data-icon-choice="preset"
-                            data-icon-preset="{{ $presetCase->value }}"
-                            aria-pressed="{{ $isPresetSelected ? 'true' : 'false' }}"
-                        >
-                            <span class="icon-tile-glyph" aria-hidden="true">{!! $presetCase->svg() !!}</span>
-                            <span>{{ $presetCase->label() }}</span>
+                            </span>
+                            <span>Hidden</span>
                         </button>
-                    @endforeach
 
-                    <button
-                        type="button"
-                        class="icon-tile {{ $selectedIconMode === 'custom' ? 'is-selected' : '' }}"
-                        data-icon-choice="custom"
-                        aria-pressed="{{ $selectedIconMode === 'custom' ? 'true' : 'false' }}"
-                    >
-                        <span class="icon-tile-glyph" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                <polyline points="21 15 16 10 5 21"></polyline>
-                            </svg>
-                        </span>
-                        <span>Custom</span>
-                    </button>
-                </div>
-
-                <div class="icon-custom-panel {{ $selectedIconMode === 'custom' ? '' : 'is-hidden' }}" id="lss-icon-custom-panel">
-                    <div class="form-field">
-                        <div class="form-label-row">
-                            <label class="form-label" for="lss-icon-custom-input">Custom Asset Path (.png or .svg)</label>
-                            <span class="token-tag">public/</span>
-                        </div>
-                        <div class="color-input-wrap">
-                            <input
-                                type="text"
-                                id="lss-icon-custom-input"
-                                class="form-control"
-                                value="{{ $customIconPath }}"
-                                placeholder="images/survey-icon.svg"
-                                autocomplete="off"
-                            >
+                        @foreach ($iconPresets as $presetCase)
+                            @php
+                                $isPresetSelected = $selectedIconMode === 'preset' && $selectedIconRaw === $presetCase->value;
+                            @endphp
                             <button
                                 type="button"
-                                class="clear-field-btn"
-                                title="Clear custom path"
-                                aria-label="Clear custom icon path"
-                                id="lss-icon-custom-clear"
-                            >&times;</button>
-                        </div>
-                        <p class="icon-helper">
-                            Relative path inside <code>public/</code> resolved via <code>asset()</code> (e.g. <code>images/survey-icon.svg</code> or <code>/images/brand.png</code>).
-                        </p>
-                        <div class="icon-preview-warning is-hidden" id="lss-icon-load-warning" role="status"></div>
-                    </div>
-                </div>
+                                class="icon-tile {{ $isPresetSelected ? 'is-selected' : '' }}"
+                                data-icon-choice="preset"
+                                data-icon-preset="{{ $presetCase->value }}"
+                                aria-pressed="{{ $isPresetSelected ? 'true' : 'false' }}"
+                            >
+                                <span class="icon-tile-glyph" aria-hidden="true">{!! $presetCase->svg() !!}</span>
+                                <span>{{ $presetCase->label() }}</span>
+                            </button>
+                        @endforeach
 
-                @error('icon')
-                    <p class="form-error" style="margin-top: 8px;">{{ $message }}</p>
-                @enderror
-            </div>
+                        <button
+                            type="button"
+                            class="icon-tile {{ $selectedIconMode === 'custom' ? 'is-selected' : '' }}"
+                            data-icon-choice="custom"
+                            aria-pressed="{{ $selectedIconMode === 'custom' ? 'true' : 'false' }}"
+                        >
+                            <span class="icon-tile-glyph" aria-hidden="true">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </span>
+                            <span>Custom</span>
+                        </button>
+                    </div>
+
+                    <div class="icon-custom-panel {{ $selectedIconMode === 'custom' ? '' : 'is-hidden' }}" id="lss-icon-custom-panel">
+                        <div class="form-field">
+                            <div class="form-label-row">
+                                <label class="form-label" for="lss-icon-custom-input">Custom Asset Path (.png or .svg)</label>
+                                <span class="token-tag">public/</span>
+                            </div>
+                            <div class="color-input-wrap">
+                                <input
+                                    type="text"
+                                    id="lss-icon-custom-input"
+                                    class="form-control"
+                                    value="{{ $customIconPath }}"
+                                    placeholder="images/survey-icon.svg"
+                                    autocomplete="off"
+                                >
+                                <button
+                                    type="button"
+                                    class="clear-field-btn"
+                                    title="Clear custom path"
+                                    aria-label="Clear custom icon path"
+                                    id="lss-icon-custom-clear"
+                                >&times;</button>
+                            </div>
+                            <p class="icon-helper">
+                                Relative path inside <code>public/</code> resolved via <code>asset()</code> (e.g. <code>images/survey-icon.svg</code> or <code>/images/brand.png</code>).
+                            </p>
+                            <div class="icon-preview-warning is-hidden" id="lss-icon-load-warning" role="status"></div>
+                        </div>
+                    </div>
+
+                    @error('icon')
+                        <p class="form-error" style="margin-top: 8px;">{{ $message }}</p>
+                    @enderror
+                </div>
+            </details>
 
             {{-- Colors --}}
-            <div class="card">
-                <h2 class="section-heading">Colors</h2>
-                <p class="section-desc">
-                    Customize button, background, surface, border, and text colors using hex values (e.g. <code>#4f46e5</code>). Blank fields inherit from CSS.
-                </p>
+            <details class="collapsible-card" open>
+                <summary class="collapsible-summary">
+                    <div>
+                        <h2 class="section-heading" style="margin: 0;">Colors</h2>
+                        <p class="section-desc" style="margin: 2px 0 0;">Hex color overrides; blank fields inherit from CSS.</p>
+                    </div>
+                    <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
 
-                <div class="form-grid">
-                    @foreach ($colorTokens as $tokenKey => $meta)
-                        @php
-                            $currentVal = old('styles.' . $tokenKey, $appearance->style($tokenKey) ?? '');
-                            $swatchVal = preg_match('/^#[0-9a-fA-F]{6}$/', (string) $currentVal) === 1
-                                ? $currentVal
-                                : $meta['placeholder_light'];
-                        @endphp
-                        <div class="form-field">
-                            <div class="form-label-row">
-                                <label class="form-label" for="lss-style-{{ $tokenKey }}">{{ $meta['label'] }}</label>
-                                <span class="token-tag">{{ $meta['css_var'] }}</span>
+                <div class="collapsible-body">
+                    <div class="form-grid">
+                        @foreach ($colorTokens as $tokenKey => $meta)
+                            @php
+                                $currentVal = old('styles.' . $tokenKey, $appearance->style($tokenKey) ?? '');
+                                $swatchVal = preg_match('/^#[0-9a-fA-F]{6}$/', (string) $currentVal) === 1
+                                    ? $currentVal
+                                    : $meta['placeholder_light'];
+                            @endphp
+                            <div class="form-field">
+                                <div class="form-label-row">
+                                    <label class="form-label" for="lss-style-{{ $tokenKey }}">{{ $meta['label'] }}</label>
+                                    <span class="token-tag">{{ $meta['css_var'] }}</span>
+                                </div>
+                                <div class="color-input-wrap">
+                                    <input
+                                        type="color"
+                                        class="color-swatch {{ $currentVal === '' ? 'is-inherited' : '' }}"
+                                        value="{{ $swatchVal }}"
+                                        aria-label="{{ $meta['label'] }} picker"
+                                        data-color-picker-for="{{ $tokenKey }}"
+                                        data-default-light="{{ $meta['placeholder_light'] }}"
+                                        data-default-dark="{{ $meta['placeholder_dark'] }}"
+                                    >
+                                    <input
+                                        type="text"
+                                        id="lss-style-{{ $tokenKey }}"
+                                        name="styles[{{ $tokenKey }}]"
+                                        class="form-control"
+                                        value="{{ $currentVal }}"
+                                        placeholder="Inherit ({{ $meta['placeholder_light'] }})"
+                                        data-style-input="{{ $tokenKey }}"
+                                        data-css-var="{{ $meta['css_var'] }}"
+                                    >
+                                    <button
+                                        type="button"
+                                        class="clear-field-btn"
+                                        title="Clear override (inherit)"
+                                        aria-label="Clear {{ $meta['label'] }}"
+                                        data-clear-style="{{ $tokenKey }}"
+                                    >&times;</button>
+                                </div>
+                                @error('styles.' . $tokenKey)
+                                    <p class="form-error">{{ $message }}</p>
+                                @enderror
                             </div>
-                            <div class="color-input-wrap">
-                                <input
-                                    type="color"
-                                    class="color-swatch {{ $currentVal === '' ? 'is-inherited' : '' }}"
-                                    value="{{ $swatchVal }}"
-                                    aria-label="{{ $meta['label'] }} picker"
-                                    data-color-picker-for="{{ $tokenKey }}"
-                                    data-default-light="{{ $meta['placeholder_light'] }}"
-                                    data-default-dark="{{ $meta['placeholder_dark'] }}"
-                                >
-                                <input
-                                    type="text"
-                                    id="lss-style-{{ $tokenKey }}"
-                                    name="styles[{{ $tokenKey }}]"
-                                    class="form-control"
-                                    value="{{ $currentVal }}"
-                                    placeholder="Inherit ({{ $meta['placeholder_light'] }})"
-                                    data-style-input="{{ $tokenKey }}"
-                                    data-css-var="{{ $meta['css_var'] }}"
-                                >
-                                <button
-                                    type="button"
-                                    class="clear-field-btn"
-                                    title="Clear override (inherit)"
-                                    aria-label="Clear {{ $meta['label'] }}"
-                                    data-clear-style="{{ $tokenKey }}"
-                                >&times;</button>
-                            </div>
-                            @error('styles.' . $tokenKey)
-                                <p class="form-error">{{ $message }}</p>
-                            @enderror
-                        </div>
-                    @endforeach
+                        @endforeach
+                    </div>
                 </div>
-            </div>
+            </details>
 
             {{-- Dimensions & Shape --}}
-            <div class="card">
-                <h2 class="section-heading">Dimensions &amp; Shape</h2>
-                <p class="section-desc">
-                    Control widget width, max height, and corner radii using CSS lengths (<code>px</code>, <code>rem</code>, <code>em</code>, <code>vh</code>, <code>vw</code>, or <code>%</code>).
-                </p>
+            <details class="collapsible-card" @if ($hasDimensionOverrides) open @endif>
+                <summary class="collapsible-summary">
+                    <div>
+                        <h2 class="section-heading" style="margin: 0;">Dimensions &amp; Shape</h2>
+                        <p class="section-desc" style="margin: 2px 0 0;">Widget width, max height, and border radii (<code>px</code>, <code>rem</code>, <code>vh</code>, etc.).</p>
+                    </div>
+                    <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
 
-                <div class="form-grid">
-                    @foreach ($dimensionTokens as $tokenKey => $meta)
-                        @php
-                            $currentVal = old('styles.' . $tokenKey, $appearance->style($tokenKey) ?? '');
-                        @endphp
-                        <div class="form-field">
-                            <div class="form-label-row">
-                                <label class="form-label" for="lss-style-{{ $tokenKey }}">{{ $meta['label'] }}</label>
-                                <span class="token-tag">{{ $meta['css_var'] }}</span>
+                <div class="collapsible-body">
+                    <div class="form-grid">
+                        @foreach ($dimensionTokens as $tokenKey => $meta)
+                            @php
+                                $currentVal = old('styles.' . $tokenKey, $appearance->style($tokenKey) ?? '');
+                            @endphp
+                            <div class="form-field">
+                                <div class="form-label-row">
+                                    <label class="form-label" for="lss-style-{{ $tokenKey }}">{{ $meta['label'] }}</label>
+                                    <span class="token-tag">{{ $meta['css_var'] }}</span>
+                                </div>
+                                <div class="color-input-wrap">
+                                    <input
+                                        type="text"
+                                        id="lss-style-{{ $tokenKey }}"
+                                        name="styles[{{ $tokenKey }}]"
+                                        class="form-control"
+                                        value="{{ $currentVal }}"
+                                        placeholder="Inherit ({{ $meta['placeholder_light'] }})"
+                                        data-style-input="{{ $tokenKey }}"
+                                        data-css-var="{{ $meta['css_var'] }}"
+                                    >
+                                    <button
+                                        type="button"
+                                        class="clear-field-btn"
+                                        title="Clear override (inherit)"
+                                        aria-label="Clear {{ $meta['label'] }}"
+                                        data-clear-style="{{ $tokenKey }}"
+                                    >&times;</button>
+                                </div>
+                                @error('styles.' . $tokenKey)
+                                    <p class="form-error">{{ $message }}</p>
+                                @enderror
                             </div>
-                            <div class="color-input-wrap">
-                                <input
-                                    type="text"
-                                    id="lss-style-{{ $tokenKey }}"
-                                    name="styles[{{ $tokenKey }}]"
-                                    class="form-control"
-                                    value="{{ $currentVal }}"
-                                    placeholder="Inherit ({{ $meta['placeholder_light'] }})"
-                                    data-style-input="{{ $tokenKey }}"
-                                    data-css-var="{{ $meta['css_var'] }}"
-                                >
-                                <button
-                                    type="button"
-                                    class="clear-field-btn"
-                                    title="Clear override (inherit)"
-                                    aria-label="Clear {{ $meta['label'] }}"
-                                    data-clear-style="{{ $tokenKey }}"
-                                >&times;</button>
-                            </div>
-                            @error('styles.' . $tokenKey)
-                                <p class="form-error">{{ $message }}</p>
-                            @enderror
-                        </div>
-                    @endforeach
+                        @endforeach
+                    </div>
                 </div>
-            </div>
+            </details>
 
             {{-- Typography --}}
-            <div class="card">
-                <h2 class="section-heading">Typography</h2>
-                <p class="section-desc">
-                    Override the base font size or font stack for this survey widget.
-                </p>
+            <details class="collapsible-card" @if ($hasTypographyOverrides) open @endif>
+                <summary class="collapsible-summary">
+                    <div>
+                        <h2 class="section-heading" style="margin: 0;">Typography</h2>
+                        <p class="section-desc" style="margin: 2px 0 0;">Override the base font size or font stack for this survey widget.</p>
+                    </div>
+                    <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
 
-                <div class="form-grid">
-                    @foreach ($typographyTokens as $tokenKey => $meta)
-                        @php
-                            $currentVal = old('styles.' . $tokenKey, $appearance->style($tokenKey) ?? '');
-                        @endphp
-                        <div class="form-field {{ $tokenKey === 'font_family' ? 'form-field-full' : '' }}">
-                            <div class="form-label-row">
-                                <label class="form-label" for="lss-style-{{ $tokenKey }}">{{ $meta['label'] }}</label>
-                                <span class="token-tag">{{ $meta['css_var'] }}</span>
+                <div class="collapsible-body">
+                    <div class="form-grid">
+                        @foreach ($typographyTokens as $tokenKey => $meta)
+                            @php
+                                $currentVal = old('styles.' . $tokenKey, $appearance->style($tokenKey) ?? '');
+                            @endphp
+                            <div class="form-field {{ $tokenKey === 'font_family' ? 'form-field-full' : '' }}">
+                                <div class="form-label-row">
+                                    <label class="form-label" for="lss-style-{{ $tokenKey }}">{{ $meta['label'] }}</label>
+                                    <span class="token-tag">{{ $meta['css_var'] }}</span>
+                                </div>
+                                <div class="color-input-wrap">
+                                    <input
+                                        type="text"
+                                        id="lss-style-{{ $tokenKey }}"
+                                        name="styles[{{ $tokenKey }}]"
+                                        class="form-control"
+                                        value="{{ $currentVal }}"
+                                        placeholder="Inherit ({{ $meta['placeholder_light'] }})"
+                                        @if ($tokenKey === 'font_family') list="lss-font-presets" @endif
+                                        data-style-input="{{ $tokenKey }}"
+                                        data-css-var="{{ $meta['css_var'] }}"
+                                    >
+                                    <button
+                                        type="button"
+                                        class="clear-field-btn"
+                                        title="Clear override (inherit)"
+                                        aria-label="Clear {{ $meta['label'] }}"
+                                        data-clear-style="{{ $tokenKey }}"
+                                    >&times;</button>
+                                </div>
+                                @error('styles.' . $tokenKey)
+                                    <p class="form-error">{{ $message }}</p>
+                                @enderror
                             </div>
-                            <div class="color-input-wrap">
-                                <input
-                                    type="text"
-                                    id="lss-style-{{ $tokenKey }}"
-                                    name="styles[{{ $tokenKey }}]"
-                                    class="form-control"
-                                    value="{{ $currentVal }}"
-                                    placeholder="Inherit ({{ $meta['placeholder_light'] }})"
-                                    @if ($tokenKey === 'font_family') list="lss-font-presets" @endif
-                                    data-style-input="{{ $tokenKey }}"
-                                    data-css-var="{{ $meta['css_var'] }}"
-                                >
-                                <button
-                                    type="button"
-                                    class="clear-field-btn"
-                                    title="Clear override (inherit)"
-                                    aria-label="Clear {{ $meta['label'] }}"
-                                    data-clear-style="{{ $tokenKey }}"
-                                >&times;</button>
-                            </div>
-                            @error('styles.' . $tokenKey)
-                                <p class="form-error">{{ $message }}</p>
-                            @enderror
-                        </div>
-                    @endforeach
+                        @endforeach
+                    </div>
+
+                    <datalist id="lss-font-presets">
+                        <option value='ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'>System Sans</option>
+                        <option value='"Inter", ui-sans-serif, system-ui, sans-serif'>Inter</option>
+                        <option value='Georgia, Cambria, "Times New Roman", Times, serif'>Editorial Serif</option>
+                        <option value='ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'>Monospace</option>
+                    </datalist>
                 </div>
+            </details>
 
-                <datalist id="lss-font-presets">
-                    <option value='ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'>System Sans</option>
-                    <option value='"Inter", ui-sans-serif, system-ui, sans-serif'>Inter</option>
-                    <option value='Georgia, Cambria, "Times New Roman", Times, serif'>Editorial Serif</option>
-                    <option value='ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'>Monospace</option>
-                </datalist>
-            </div>
-
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-                <span class="muted" style="font-size: 12.5px;">
-                    Empty fields inherit from your codebase CSS (<code>resources/css/simple-surveys.css</code>).
-                </span>
+            <div class="sticky-save-bar">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span class="unsaved-pill" id="lss-unsaved-pill">Unsaved changes</span>
+                    <span class="muted" style="font-size: 12px;">
+                        Empty fields inherit from <code>resources/css/simple-surveys.css</code>.
+                    </span>
+                </div>
                 <button type="submit" class="btn btn-primary">Save Appearance</button>
             </div>
         </form>
@@ -539,7 +630,7 @@
                                             @case(QuestionType::Rating)
                                                 @php
                                                     $minR = (int) ($question->getMin() ?? 1);
-                                                    $maxR = min((int) ($question->getMax() ?? 5), $minR + 9);
+                                                    $maxR = min((int) ($question->getMax() ?? 5), $minR + 10);
                                                 @endphp
                                                 <div class="lss-rating-group">
                                                     @for ($s = $minR; $s <= $maxR; $s++)
@@ -628,22 +719,31 @@
             </div>
 
             {{-- Codebase CSS Helper --}}
-            <div class="card">
-                <h2 class="section-heading">Style in Codebase CSS</h2>
-                <p class="section-desc" style="margin-bottom: 6px;">
-                    Prefer keeping styles in Git? Target this survey in <code>resources/css/simple-surveys.css</code>:
-                </p>
-                <pre class="code-snippet"><code>[data-lss-survey="{{ $survey->key() }}"] {
+            <details class="collapsible-card">
+                <summary class="collapsible-summary">
+                    <div>
+                        <h2 class="section-heading" style="margin: 0;">Style in Codebase CSS</h2>
+                        <p class="section-desc" style="margin: 2px 0 0;">Copyable selector for <code>resources/css/simple-surveys.css</code>.</p>
+                    </div>
+                    <svg class="collapsible-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
+                <div class="collapsible-body">
+                    <pre class="code-snippet" style="margin: 0;"><code>[data-lss-survey="{{ $survey->key() }}"] {
     --lss-accent: #4f46e5;
     --lss-bg: #ffffff;
     --lss-card-width: 390px;
 }</code></pre>
-            </div>
+                </div>
+            </details>
         </div>
     </div>
 
     <script>
         (function () {
+            var form = document.getElementById('lss-appearance-form');
+            var unsavedPill = document.getElementById('lss-unsaved-pill');
             var previewRoot = document.getElementById('lss-preview-root');
             var previewCanvas = document.getElementById('lss-preview-canvas');
             var previewCard = document.getElementById('lss-preview-card');
@@ -663,6 +763,17 @@
 
             if (!previewRoot) {
                 return;
+            }
+
+            function markDirty() {
+                if (unsavedPill) {
+                    unsavedPill.classList.add('is-visible');
+                }
+            }
+
+            if (form) {
+                form.addEventListener('input', markDirty);
+                form.addEventListener('change', markDirty);
             }
 
             var positionNames = {
@@ -725,6 +836,7 @@
                     if (textInput) {
                         textInput.value = picker.value;
                         applyStyleToken(textInput);
+                        markDirty();
                     }
                 });
             });
@@ -736,6 +848,7 @@
                     if (textInput) {
                         textInput.value = '';
                         applyStyleToken(textInput);
+                        markDirty();
                     }
                 });
             });
@@ -754,6 +867,7 @@
                             applyStyleToken(input);
                         }
                     });
+                    markDirty();
                 });
             });
 
@@ -922,6 +1036,7 @@
 
                     setSelectedIconTile(mode, presetKey);
                     setPreviewMode('banner');
+                    markDirty();
 
                     if (mode === 'inherit') {
                         if (iconHiddenInput) iconHiddenInput.value = '';
@@ -957,6 +1072,7 @@
                     if (iconCustomInput) {
                         iconCustomInput.value = '';
                         applyCustomIconInput(true);
+                        markDirty();
                         iconCustomInput.focus();
                     }
                 });

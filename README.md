@@ -105,7 +105,7 @@ use Illuminate\Support\Facades\Gate;
 Gate::define('viewSimpleSurveys', fn ($user): bool => (bool) $user->is_admin);
 ```
 
-Then visit `/simple-surveys/admin` to inspect funnel metrics, question breakdowns, CSV exports, lifecycle controls, and the live **Appearance** editor.
+Then visit `/simple-surveys/admin` to inspect funnel metrics, inline SVG charts (conversion funnel, time-series trends, rating histograms/NPS, boolean donuts), searchable & cross-filterable responses with a slide-over detail drawer, Light/Dark mode, CSV exports, lifecycle controls, and the live **Appearance** editor.
 
 ![Admin Appearance Editor with live preview](docs/assets/admin-appearance-demo.gif)
 
