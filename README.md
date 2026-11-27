@@ -1,6 +1,6 @@
 # Laravel Simple Surveys
 
-[![Tests](https://github.com/danielCristeaa/laravel-simple-surveys/actions/workflows/ci.yml/badge.svg)](https://github.com/danielCristeaa/laravel-simple-surveys/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/danielCristeaa/laravel-simple-surveys/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/danielCristeaa/laravel-simple-surveys/actions/workflows/ci.yml)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/danielcristea/laravel-simple-surveys.svg?style=flat-square)](https://packagist.org/packages/danielcristea/laravel-simple-surveys)
 [![Total Downloads](https://img.shields.io/packagist/dt/danielcristea/laravel-simple-surveys.svg?style=flat-square)](https://packagist.org/packages/danielcristea/laravel-simple-surveys)
 [![PHP Version](https://img.shields.io/packagist/php-v/danielcristea/laravel-simple-surveys.svg?style=flat-square)](https://packagist.org/packages/danielcristea/laravel-simple-surveys)
@@ -21,7 +21,7 @@ A lightweight, code-first Laravel package for running targeted in-app surveys wi
 - **Eloquent & page targeting:** Target authenticated users with real Eloquent queries (`where`, `whereHas`), user predicates, route/path rules, schedules, and dismissal re-prompt cooldowns.
 - **Multi-language ready:** Publishable widget UI strings, convention-based `lang/{locale}/simple-surveys.php` scaffolding (`simple-surveys:translations`), and automatic respondent `locale` recording.
 - **Analytics, webhooks & notifications:** Built-in funnel tracking (seen, opened, abandoned, response/completion rates), browser `CustomEvent`s, tracking context snapshots, signed webhooks, and Mail/Slack submission alerts.
-- **Octane-safe & strictly typed:** PHP 8.2+, Laravel 11.x / 12.x / 13.x, PHPStan Level 8+.
+- **Octane-safe, CSP-ready & strictly typed:** PHP 8.2+, Laravel 11.x / 12.x / 13.x, strict Content-Security-Policy nonce support (zero inline `style`/event attributes), PHPStan Level 8+.
 
 ![Admin Results Dashboard overview](docs/assets/admin-overview.png)
 
@@ -40,7 +40,7 @@ Install the package via Composer:
 composer require danielcristea/laravel-simple-surveys
 ```
 
-Publish and run the migrations:
+Publish and run the migration:
 
 ```bash
 php artisan vendor:publish --tag="simple-surveys-migrations"
@@ -129,14 +129,14 @@ Then visit `/simple-surveys/admin` to inspect funnel metrics, inline SVG charts 
 | :--- | :--- |
 | [**Defining Surveys**](docs/defining-surveys.md) | `Survey` & `Question` fluent API tables, all 8 question types, `SurveyDefinition` classes, conditional logic (`->when`), and DB syncing |
 | [**Audience Targeting & Scheduling**](docs/targeting.md) | Eloquent `->target()`, `->targetUser()`, route/path rules (`onRoutes`, `onPaths`), schedules, re-prompt cooldowns, and priority order |
-| [**Customer Widget & SPA Mode**](docs/widget.md) | Component attributes (`position`, `theme`, `icon`, `survey`), Inertia/Livewire `dynamic` mode, and publishing Blade views |
+| [**Customer Widget & SPA Mode**](docs/widget.md) | Component attributes (`position`, `theme`, `icon`, `survey`, `nonce`), Inertia/Livewire `dynamic` mode, CSP nonces, and publishing Blade views |
 | [**Appearance & Styling**](docs/styling.md) | `--lss-*` CSS custom properties, global vs per-survey overrides, style precedence, and the Admin **Appearance** tab |
 | [**Headless / API-Only Setup**](docs/headless-api.md) | Sanctum/Passport Bearer & cookie auth, CORS, JSON endpoints (`?survey=`, `?url=`), `duration_ms`, and a full React example |
 | [**Admin Results Dashboard**](docs/admin-dashboard.md) | Gate authorization, funnel metrics, End/Re-open/Reset controls, CSV exports, programmatic PHP results API (`SimpleSurveys::results()`), and `simple-surveys:results` CLI |
 | [**Localization & Translations**](docs/localization.md) | Publishable widget chrome, `lang/{locale}/simple-surveys.php` scaffolding (`simple-surveys:translations`), and locale recording |
 | [**Analytics, Events & Tracking**](docs/analytics-and-tracking.md) | Browser `CustomEvent`s (GA4/PostHog/Mixpanel), tracking cookies, `resolveTrackingContext`, and Laravel lifecycle events |
 | [**Webhooks & Notifications**](docs/webhooks-and-notifications.md) | Signed lifecycle webhooks (HMAC-SHA256, queues/retries) and Mail/Slack/custom submission notifications |
-| [**Configuration & Artisan Commands**](docs/configuration.md) | Full `config/simple-surveys.php` reference, publish tags, CLI commands, UUID/ULID respondents, and Octane notes |
+| [**Configuration & Artisan Commands**](docs/configuration.md) | Full `config/simple-surveys.php` reference, publish tags, CLI commands, CSP nonces, UUID/ULID respondents, and Octane notes |
 | [**Recipes & Walkthroughs**](docs/recipes.md) | End-to-end walkthroughs for CSAT + Slack alerts, multi-language cohort tracking, Inertia/Livewire SPAs, and multi-theme styling |
 
 ---
@@ -148,6 +148,12 @@ composer test
 composer analyse
 composer format:check
 ```
+
+## Changelog, Contributing & Security
+
+- See [CHANGELOG.md](CHANGELOG.md) for release notes and version history.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for local development setup and pull request guidelines.
+- See [SECURITY.md](SECURITY.md) for responsible security vulnerability reporting.
 
 ## License
 
