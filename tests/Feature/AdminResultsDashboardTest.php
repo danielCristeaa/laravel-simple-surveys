@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
+use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
@@ -697,4 +699,102 @@ it('preserves answer=0 in boolean, nps rating, choice cross-filter links, date-r
         ->assertSee('<span>10</span>', false);
 
     expect(substr_count($appearanceResponse->getContent(), 'name="preview_nps"'))->toBe(11);
+});
+
+it('reflects effective scheduled, expired, and reopened statuses accurately in admin summaries and detail views', function (): void {
+    $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'is_admin' => true]);
+    $user = User::create(['name' => 'Customer', 'email' => 'customer@example.com', 'is_admin' => false]);
+    $baseTime = CarbonImmutable::parse('2026-11-27 12:00:00');
+    $this->travelTo($baseTime);
+
+    SimpleSurveys::register(
+        Survey::make('scheduled-survey')
+            ->title('Scheduled Survey')
+            ->startsAt($baseTime->addHour())
+            ->questions([Question::text('q', 'Q')])
+    );
+
+    SimpleSurveys::register(
+        Survey::make('expiring-survey')
+            ->title('Expiring Survey')
+            ->until($baseTime->addHours(2))
+            ->questions([Question::text('q', 'Q')])
+    );
+
+    SimpleSurveys::sync();
+
+    $aggregator = app(SurveyResultsAggregator::class);
+
+    $initialSummaries = $aggregator->summaries()->keyBy('key');
+    expect($initialSummaries['scheduled-survey']['status'])->toBe(SurveyStatus::Scheduled)
+        ->and($initialSummaries['expiring-survey']['status'])->toBe(SurveyStatus::Active)
+        ->and($aggregator->forSurvey('scheduled-survey')['status'])->toBe(SurveyStatus::Scheduled)
+        ->and($aggregator->forSurvey('expiring-survey')['status'])->toBe(SurveyStatus::Active);
+
+    // Advance 3 hours without re-syncing: scheduled-survey is now Active, expiring-survey is now Closed
+    $this->travelTo($baseTime->addHours(3));
+
+    $laterSummaries = $aggregator->summaries()->keyBy('key');
+    $laterOptions = collect($aggregator->surveyOptions())->keyBy('key');
+
+    expect($laterSummaries['scheduled-survey']['status'])->toBe(SurveyStatus::Active)
+        ->and($laterSummaries['expiring-survey']['status'])->toBe(SurveyStatus::Closed)
+        ->and($laterOptions['scheduled-survey']['status'])->toBe(SurveyStatus::Active)
+        ->and($laterOptions['expiring-survey']['status'])->toBe(SurveyStatus::Closed)
+        ->and($aggregator->forSurvey('scheduled-survey')['status'])->toBe(SurveyStatus::Active)
+        ->and($aggregator->forSurvey('expiring-survey')['status'])->toBe(SurveyStatus::Closed);
+
+    // Admin detail page shows End Survey Now for scheduled-survey and Re-open Survey for expiring-survey
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'scheduled-survey'))
+        ->assertOk()
+        ->assertSee('End Survey Now')
+        ->assertDontSee('Re-open Survey');
+
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.show', 'expiring-survey'))
+        ->assertOk()
+        ->assertSee('Re-open Survey')
+        ->assertDontSee('End Survey Now');
+
+    // Appearance page badge also reflects effective status
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.appearance.edit', 'expiring-survey'))
+        ->assertOk()
+        ->assertSee('badge-closed', false);
+
+    // Admin closes scheduled-survey and reopens expiring-survey (whose code ends_at is now in the past)
+    $this->actingAs($admin)
+        ->post(route('simple-surveys.admin.close', 'scheduled-survey'))
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(route('simple-surveys.admin.reopen', 'expiring-survey'))
+        ->assertRedirect();
+
+    // Subsequent sync preserves both manual overrides
+    SimpleSurveys::sync();
+
+    $overriddenSummaries = $aggregator->summaries()->keyBy('key');
+    expect($overriddenSummaries['scheduled-survey']['status'])->toBe(SurveyStatus::Closed)
+        ->and($overriddenSummaries['expiring-survey']['status'])->toBe(SurveyStatus::Active)
+        ->and($overriddenSummaries['expiring-survey']['ends_at'])->toBeNull()
+        ->and($aggregator->forSurvey('scheduled-survey')['status'])->toBe(SurveyStatus::Closed)
+        ->and($aggregator->forSurvey('expiring-survey')['status'])->toBe(SurveyStatus::Active)
+        ->and($aggregator->forSurvey('expiring-survey')['ends_at'])->toBeNull()
+        ->and(SimpleSurveys::isEligible('scheduled-survey', $user))->toBeFalse()
+        ->and(SimpleSurveys::isEligible('expiring-survey', $user))->toBeTrue();
+
+    // Admin index filter counts reflect the effective statuses
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['status' => 'active']))
+        ->assertOk()
+        ->assertSee('Expiring Survey')
+        ->assertDontSee('Scheduled Survey');
+
+    $this->actingAs($admin)
+        ->get(route('simple-surveys.admin.index', ['status' => 'closed']))
+        ->assertOk()
+        ->assertSee('Scheduled Survey')
+        ->assertDontSee('Expiring Survey');
 });

@@ -20,6 +20,7 @@ final class SurveyEligibilityResolver
 {
     public function __construct(
         private readonly SurveyRegistry $registry,
+        private readonly SurveyStatusResolver $statusResolver,
     ) {}
 
     public function nextFor(?Authenticatable $user, ?CarbonInterface $now = null, ?PageContext $context = null): ?Survey
@@ -140,7 +141,7 @@ final class SurveyEligibilityResolver
         /** @var array<string, SurveyRecord> $records */
         $records = SurveyRecord::query()
             ->whereIn('key', $surveyKeys)
-            ->get(['id', 'key', 'status'])
+            ->get(['id', 'key', 'status', 'starts_at', 'ends_at'])
             ->keyBy('key')
             ->all();
 
@@ -165,11 +166,7 @@ final class SurveyEligibilityResolver
 
     private function isSurveyEffectivelyActive(Survey $survey, ?SurveyRecord $record, ?CarbonInterface $now): bool
     {
-        if ($record !== null) {
-            return $record->status === SurveyStatus::Active;
-        }
-
-        return $survey->isActive($now);
+        return $this->statusResolver->isActive($survey, $record, $now);
     }
 
     /**

@@ -11,6 +11,7 @@ use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Services\SurveyAppearanceResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
+use DanielCristea\SimpleSurveys\Services\SurveyStatusResolver;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Survey;
 use DanielCristea\SimpleSurveys\SurveyAppearance;
@@ -26,6 +27,7 @@ final class SurveyAppearanceController
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyAppearanceResolver $appearanceResolver,
         private readonly SurveyResultsAggregator $aggregator,
+        private readonly SurveyStatusResolver $statusResolver,
     ) {}
 
     public function edit(string $surveyKey): View
@@ -35,7 +37,7 @@ final class SurveyAppearanceController
         $survey = $this->findRegisteredSurvey($surveyKey);
         $record = SurveyRecord::query()->byKey($surveyKey)->withCount('responses')->first();
         $appearance = $this->appearanceResolver->fromRecord($record);
-        $status = $record !== null ? $record->status : $survey->status();
+        $status = $this->statusResolver->resolve($survey, $record);
         $responsesCount = $record !== null ? (int) $record->getAttribute('responses_count') : 0;
 
         /** @var view-string $view */

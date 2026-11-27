@@ -24,6 +24,7 @@ final class SurveyResultsAggregator
 {
     public function __construct(
         private readonly SurveyRegistry $registry,
+        private readonly SurveyStatusResolver $statusResolver,
     ) {}
 
     /**
@@ -98,11 +99,11 @@ final class SurveyResultsAggregator
                 'key' => $survey->key(),
                 'title' => $survey->getTitle(),
                 'description' => $survey->getDescription(),
-                'status' => $record !== null ? $record->status : $survey->status(),
+                'status' => $this->statusResolver->resolve($survey, $record),
                 'registered' => true,
                 'priority' => $survey->getPriority(),
-                'starts_at' => $survey->getStartsAt()?->toDateTimeString(),
-                'ends_at' => ($record !== null ? $record->ends_at : $survey->getEndsAt())?->toDateTimeString(),
+                'starts_at' => $this->statusResolver->effectiveStartsAt($survey, $record)?->toDateTimeString(),
+                'ends_at' => $this->statusResolver->effectiveEndsAt($survey, $record)?->toDateTimeString(),
                 'questions_count' => count($survey->getQuestions()),
                 'impressions_count' => $impressionsCount,
                 'opens_count' => $opensCount,
@@ -160,7 +161,7 @@ final class SurveyResultsAggregator
         $records = SurveyRecord::query()
             ->orderByDesc('priority')
             ->orderBy('title')
-            ->get(['key', 'title', 'status'])
+            ->get(['key', 'title', 'status', 'starts_at', 'ends_at'])
             ->keyBy('key');
 
         $registeredSurveys = $this->registry->all();
@@ -173,7 +174,7 @@ final class SurveyResultsAggregator
             $options[] = [
                 'key' => $survey->key(),
                 'title' => $survey->getTitle(),
-                'status' => $record !== null ? $record->status : $survey->status(),
+                'status' => $this->statusResolver->resolve($survey, $record),
                 'registered' => true,
             ];
         }
@@ -298,11 +299,11 @@ final class SurveyResultsAggregator
                 'key' => $registered->key(),
                 'title' => $registered->getTitle(),
                 'description' => $registered->getDescription(),
-                'status' => $registered->status(),
+                'status' => $this->statusResolver->resolve($registered, null),
                 'registered' => true,
                 'priority' => $registered->getPriority(),
-                'starts_at' => $registered->getStartsAt()?->toDateTimeString(),
-                'ends_at' => $registered->getEndsAt()?->toDateTimeString(),
+                'starts_at' => $this->statusResolver->effectiveStartsAt($registered, null)?->toDateTimeString(),
+                'ends_at' => $this->statusResolver->effectiveEndsAt($registered, null)?->toDateTimeString(),
                 'dismissible' => $registered->isDismissible(),
                 'impressions_count' => 0,
                 'opens_count' => 0,
@@ -424,11 +425,17 @@ final class SurveyResultsAggregator
             'key' => $record->key,
             'title' => $registered !== null ? $registered->getTitle() : $record->title,
             'description' => $registered !== null ? $registered->getDescription() : $record->description,
-            'status' => $record->status,
+            'status' => $registered !== null
+                ? $this->statusResolver->resolve($registered, $record)
+                : SurveyStatus::Closed,
             'registered' => $registered !== null,
             'priority' => $registered !== null ? $registered->getPriority() : (int) $record->priority,
-            'starts_at' => ($registered !== null ? $registered->getStartsAt() : $record->starts_at)?->toDateTimeString(),
-            'ends_at' => $record->ends_at?->toDateTimeString() ?? $registered?->getEndsAt()?->toDateTimeString(),
+            'starts_at' => ($registered !== null
+                ? $this->statusResolver->effectiveStartsAt($registered, $record)
+                : $record->starts_at)?->toDateTimeString(),
+            'ends_at' => ($registered !== null
+                ? $this->statusResolver->effectiveEndsAt($registered, $record)
+                : $record->ends_at)?->toDateTimeString(),
             'dismissible' => $registered !== null ? $registered->isDismissible() : (bool) $record->dismissible,
             'impressions_count' => $impressionsCount,
             'opens_count' => $opensCount,

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace DanielCristea\SimpleSurveys\Http\Controllers;
 
 use DanielCristea\SimpleSurveys\Enums\QuestionType;
-use DanielCristea\SimpleSurveys\Enums\SurveyStatus;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
 use DanielCristea\SimpleSurveys\Models\SurveyDismissal;
@@ -15,6 +14,7 @@ use DanielCristea\SimpleSurveys\Models\SurveyRecord;
 use DanielCristea\SimpleSurveys\Models\SurveyResponse;
 use DanielCristea\SimpleSurveys\Services\SurveyEligibilityResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
+use DanielCristea\SimpleSurveys\Services\SurveyStatusResolver;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
@@ -30,6 +30,7 @@ final class SurveySubmissionController
     public function __construct(
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,
+        private readonly SurveyStatusResolver $statusResolver,
         private readonly SurveyValidator $validator,
         private readonly SurveySynchronizer $synchronizer,
         private readonly SurveyTrackingContextResolver $trackingContext,
@@ -53,11 +54,7 @@ final class SurveySubmissionController
 
         $existingRecord = SurveyRecord::query()->byKey($survey->key())->first();
 
-        $isActive = $existingRecord !== null
-            ? $existingRecord->status === SurveyStatus::Active
-            : $survey->isActive();
-
-        if (! $isActive) {
+        if (! $this->statusResolver->isActive($survey, $existingRecord)) {
             abort(403, $this->translator->ui('errors.not_active'));
         }
 

@@ -749,6 +749,16 @@ final class Survey
         return $this->questions[$key] ?? null;
     }
 
+    public function isDraft(): bool
+    {
+        return $this->isDraft;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->isClosed;
+    }
+
     public function status(?CarbonInterface $now = null): SurveyStatus
     {
         if ($this->isDraft) {

@@ -20,6 +20,7 @@ use DanielCristea\SimpleSurveys\Services\SurveyNotificationDispatcher;
 use DanielCristea\SimpleSurveys\Services\SurveyRegistry;
 use DanielCristea\SimpleSurveys\Services\SurveyResultsAggregator;
 use DanielCristea\SimpleSurveys\Services\SurveySerializer;
+use DanielCristea\SimpleSurveys\Services\SurveyStatusResolver;
 use DanielCristea\SimpleSurveys\Services\SurveySynchronizer;
 use DanielCristea\SimpleSurveys\Services\SurveyTrackingContextResolver;
 use DanielCristea\SimpleSurveys\Services\SurveyTranslator;
@@ -61,6 +62,7 @@ final class SimpleSurveysServiceProvider extends PackageServiceProvider
         $this->app->singleton(SurveyAppearanceResolver::class);
         $this->app->singleton(SurveyTranslator::class);
         $this->app->singleton(SurveyValidator::class);
+        $this->app->singleton(SurveyStatusResolver::class);
         $this->app->singleton(SurveySynchronizer::class);
         $this->app->singleton(SurveyResultsAggregator::class);
         $this->app->singleton(SurveyLifecycleManager::class);

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use DanielCristea\SimpleSurveys\Events\SurveySubmitted;
 use DanielCristea\SimpleSurveys\Facades\SimpleSurveys;
 use DanielCristea\SimpleSurveys\Models\SurveyAnswer;
@@ -228,4 +229,91 @@ it('handles conditional follow-up questions end-to-end on submission', function 
 
     expect($unhappyResponse->answerFor('score'))->toBe(2)
         ->and($unhappyResponse->answerFor('low_reason'))->toBe('Checkout took too long');
+});
+
+it('rejects submissions once a synced survey passes ends_at and accepts them once starts_at passes', function (): void {
+    $alice = User::create(['name' => 'Alice', 'email' => 'alice@example.com']);
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $baseTime = CarbonImmutable::parse('2026-11-27 12:00:00');
+    $this->travelTo($baseTime);
+
+    SimpleSurveys::register(
+        Survey::make('expiring-survey')
+            ->until($baseTime->addHour())
+            ->questions([Question::text('q', 'Q')->required()])
+    );
+
+    SimpleSurveys::register(
+        Survey::make('future-survey')
+            ->startsAt($baseTime->addHours(2))
+            ->questions([Question::text('q', 'Q')->required()])
+    );
+
+    SimpleSurveys::sync();
+
+    // Before ends_at: Alice can submit expiring-survey; future-survey is rejected with 403
+    $this->actingAs($alice)
+        ->postJson(route('simple-surveys.responses.store', 'expiring-survey'), [
+            'answers' => ['q' => 'Before expiry'],
+        ])
+        ->assertCreated();
+
+    $this->actingAs($alice)
+        ->postJson(route('simple-surveys.responses.store', 'future-survey'), [
+            'answers' => ['q' => 'Too early'],
+        ])
+        ->assertForbidden();
+
+    // Advance past expiring-survey's ends_at AND future-survey's starts_at without re-syncing
+    $this->travelTo($baseTime->addHours(3));
+
+    $this->actingAs($bob)
+        ->postJson(route('simple-surveys.responses.store', 'expiring-survey'), [
+            'answers' => ['q' => 'After expiry'],
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($bob)
+        ->postJson(route('simple-surveys.responses.store', 'future-survey'), [
+            'answers' => ['q' => 'Now active!'],
+        ])
+        ->assertCreated();
+});
+
+it('accepts submissions on a reopened survey even when its code ends_at is in the past', function (): void {
+    $user = User::create(['name' => 'ReopenedUser', 'email' => 'reopened@example.com']);
+    $baseTime = CarbonImmutable::parse('2026-11-27 12:00:00');
+    $this->travelTo($baseTime);
+
+    SimpleSurveys::register(
+        Survey::make('past-end-survey')
+            ->until($baseTime->subDay())
+            ->questions([Question::text('q', 'Q')->required()])
+    );
+
+    SimpleSurveys::sync();
+
+    // Expired survey rejects submission
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.responses.store', 'past-end-survey'), [
+            'answers' => ['q' => 'Before reopen'],
+        ])
+        ->assertForbidden();
+
+    // Admin reopens -> user sees impression, opens, and submits (all calling synchronizer->sync)
+    SimpleSurveys::reopen('past-end-survey');
+
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.impression', 'past-end-survey'))
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.open', 'past-end-survey'))
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('simple-surveys.responses.store', 'past-end-survey'), [
+            'answers' => ['q' => 'Submitted after reopen'],
+        ])
+        ->assertCreated();
 });

@@ -219,3 +219,82 @@ it('filters eligible surveys by page route and path with zero db queries when no
         ->and(SimpleSurveys::isEligible('billing-only', $user, context: $settingsContext))->toBeFalse()
         ->and(DB::getQueryLog())->toBeEmpty();
 });
+
+it('evaluates starts_at and ends_at windows at runtime even after a survey is synced to the database', function (): void {
+    $user = User::create(['name' => 'Elena', 'email' => 'elena@example.com']);
+    $baseTime = CarbonImmutable::parse('2026-11-27 12:00:00');
+    $this->travelTo($baseTime);
+
+    SimpleSurveys::register(
+        Survey::make('scheduled-synced')
+            ->startsAt($baseTime->addHour())
+    );
+
+    SimpleSurveys::register(
+        Survey::make('expiring-synced')
+            ->until($baseTime->addHours(2))
+    );
+
+    SimpleSurveys::sync();
+
+    // Initially: expiring-synced is active, scheduled-synced is scheduled
+    expect(SimpleSurveys::forUser($user)?->key())->toBe('expiring-synced')
+        ->and(SimpleSurveys::isEligible('scheduled-synced', $user))->toBeFalse()
+        ->and(SimpleSurveys::isEligible('expiring-synced', $user))->toBeTrue();
+
+    // After 90 minutes (without re-syncing): scheduled-synced is now active alongside expiring-synced
+    $this->travelTo($baseTime->addMinutes(90));
+
+    expect(SimpleSurveys::eligibleFor($user)->map->key()->all())->toBe([
+        'scheduled-synced',
+        'expiring-synced',
+    ])
+        ->and(SimpleSurveys::isEligible('scheduled-synced', $user))->toBeTrue()
+        ->and(SimpleSurveys::isEligible('expiring-synced', $user))->toBeTrue();
+
+    // After 3 hours (without re-syncing): expiring-synced has expired and is no longer eligible
+    $this->travelTo($baseTime->addHours(3));
+
+    expect(SimpleSurveys::forUser($user)?->key())->toBe('scheduled-synced')
+        ->and(SimpleSurveys::eligibleFor($user)->map->key()->all())->toBe(['scheduled-synced'])
+        ->and(SimpleSurveys::isEligible('expiring-synced', $user))->toBeFalse();
+});
+
+it('updates starts_at and ends_at on subsequent syncs without clobbering manual overrides', function (): void {
+    $user = User::create(['name' => 'Marco', 'email' => 'marco@example.com']);
+    $baseTime = CarbonImmutable::parse('2026-11-27 12:00:00');
+    $this->travelTo($baseTime);
+
+    SimpleSurveys::register(
+        Survey::make('rescheduled')
+            ->startsAt($baseTime->addDays(5))
+            ->until($baseTime->addDays(10))
+    );
+    SimpleSurveys::sync();
+
+    expect(SimpleSurveys::isEligible('rescheduled', $user))->toBeFalse();
+
+    // Developer moves schedule earlier and re-syncs
+    SimpleSurveys::register(
+        Survey::make('rescheduled')
+            ->startsAt($baseTime->subHour())
+            ->until($baseTime->addHour())
+    );
+    SimpleSurveys::sync();
+
+    $record = SurveyRecord::query()->byKey('rescheduled')->firstOrFail();
+    expect($record->starts_at?->equalTo($baseTime->subHour()))->toBeTrue()
+        ->and($record->ends_at?->equalTo($baseTime->addHour()))->toBeTrue()
+        ->and(SimpleSurveys::isEligible('rescheduled', $user))->toBeTrue();
+
+    // Wait past ends_at, then admin reopens -> subsequent sync must preserve reopened state
+    $this->travelTo($baseTime->addHours(2));
+    expect(SimpleSurveys::isEligible('rescheduled', $user))->toBeFalse();
+
+    SimpleSurveys::reopen('rescheduled');
+    SimpleSurveys::sync();
+
+    $reopened = SurveyRecord::query()->byKey('rescheduled')->firstOrFail();
+    expect($reopened->ends_at)->toBeNull()
+        ->and(SimpleSurveys::isEligible('rescheduled', $user))->toBeTrue();
+});

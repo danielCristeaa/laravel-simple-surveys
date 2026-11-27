@@ -43,7 +43,7 @@ final class SurveyLifecycleManager
 
         $endsAt = $record->ends_at;
 
-        if ($endsAt !== null && $endsAt->isPast()) {
+        if ($endsAt !== null && $endsAt->lessThanOrEqualTo(now())) {
             $endsAt = null;
         }
 
