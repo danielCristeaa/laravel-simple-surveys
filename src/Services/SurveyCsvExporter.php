@@ -14,6 +14,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class SurveyCsvExporter
 {
+    private const UTF8_BOM = "\xEF\xBB\xBF";
+
+    /** @var list<string> */
+    private const FORMULA_PREFIXES = ['=', '+', '-', '@', "\t", "\r"];
+
     public function streamDownload(Survey|string $survey, ?string $filename = null): ?StreamedResponse
     {
         $surveyKey = $survey instanceof Survey ? $survey->key() : $survey;
@@ -37,6 +42,8 @@ final class SurveyCsvExporter
             if ($handle === false) {
                 return;
             }
+
+            fwrite($handle, self::UTF8_BOM);
 
             $questions = $record->questions;
             $hasDuration = false;
@@ -104,7 +111,7 @@ final class SurveyCsvExporter
                 $headers[] = $trackingKey;
             }
 
-            fputcsv($handle, $headers);
+            fputcsv($handle, array_map($this->sanitizeCsvCell(...), $headers));
 
             SurveyResponse::query()
                 ->forSurvey($record)
@@ -126,11 +133,11 @@ final class SurveyCsvExporter
                             : '';
 
                         $row = [
-                            (string) $response->getKey(),
-                            $response->respondent_type,
-                            (string) $response->respondent_id,
-                            $response->created_at?->toDateTimeString() ?? '',
-                            $url,
+                            $this->sanitizeCsvCell((string) $response->getKey()),
+                            $this->sanitizeCsvCell($response->respondent_type),
+                            $this->sanitizeCsvCell((string) $response->respondent_id),
+                            $this->sanitizeCsvCell($response->created_at?->toDateTimeString() ?? ''),
+                            $this->sanitizeCsvCell($url),
                         ];
 
                         foreach ($questions as $question) {
@@ -145,7 +152,7 @@ final class SurveyCsvExporter
 
                         if ($hasLocale) {
                             $locale = $metadata['locale'] ?? null;
-                            $row[] = is_string($locale) ? trim($locale) : '';
+                            $row[] = is_string($locale) ? $this->sanitizeCsvCell(trim($locale)) : '';
                         }
 
                         $tracking = is_array($metadata['tracking'] ?? null) ? $metadata['tracking'] : [];
@@ -174,13 +181,40 @@ final class SurveyCsvExporter
             return $value ? 'Yes' : 'No';
         }
 
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        if (is_float($value)) {
+            return is_finite($value) ? (string) $value : '';
+        }
+
         if (is_array($value)) {
-            return implode(', ', array_map(
+            $joined = implode(', ', array_map(
                 static fn (mixed $item): string => is_scalar($item) ? (string) $item : '',
                 $value,
             ));
+
+            return $this->sanitizeCsvCell($joined);
         }
 
-        return is_scalar($value) ? (string) $value : '';
+        return is_scalar($value) ? $this->sanitizeCsvCell((string) $value) : '';
+    }
+
+    private function sanitizeCsvCell(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^-[0-9]+(?:\.[0-9]+)?$/', $value) === 1 && is_finite((float) $value)) {
+            return $value;
+        }
+
+        if (in_array($value[0], self::FORMULA_PREFIXES, true)) {
+            return "'".$value;
+        }
+
+        return $value;
     }
 }
