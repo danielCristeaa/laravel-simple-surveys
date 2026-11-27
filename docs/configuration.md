@@ -79,7 +79,7 @@ php artisan vendor:publish --tag="simple-surveys-config"
 
 | Tag | Destination | Contents |
 | :--- | :--- | :--- |
-| `simple-surveys-migrations` | `database/migrations/` | 4 migrations creating the 7 normalized tables. |
+| `simple-surveys-migrations` | `database/migrations/` | 1 migration creating the 7 normalized tables. |
 | `simple-surveys-config` | `config/simple-surveys.php` | Package configuration file. |
 | `simple-surveys-styles` | `resources/css/simple-surveys.css` | Starter CSS override file with all public `--lss-*` variables. |
 | `simple-surveys-translations` | `lang/vendor/simple-surveys/` | Built-in widget UI strings (`widget.php`). |

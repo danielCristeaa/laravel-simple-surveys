@@ -1,5 +1,11 @@
 # Laravel Simple Surveys
 
+[![Tests](https://github.com/danielCristeaa/laravel-simple-surveys/actions/workflows/ci.yml/badge.svg)](https://github.com/danielCristeaa/laravel-simple-surveys/actions/workflows/ci.yml)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/danielcristea/laravel-simple-surveys.svg?style=flat-square)](https://packagist.org/packages/danielcristea/laravel-simple-surveys)
+[![Total Downloads](https://img.shields.io/packagist/dt/danielcristea/laravel-simple-surveys.svg?style=flat-square)](https://packagist.org/packages/danielcristea/laravel-simple-surveys)
+[![PHP Version](https://img.shields.io/packagist/php-v/danielcristea/laravel-simple-surveys.svg?style=flat-square)](https://packagist.org/packages/danielcristea/laravel-simple-surveys)
+[![License](https://img.shields.io/packagist/l/danielcristea/laravel-simple-surveys.svg?style=flat-square)](LICENSE.md)
+
 A lightweight, code-first Laravel package for running targeted in-app surveys with a drop-in Blade widget, headless JSON API, and a protected Admin Results Dashboard.
 
 ![Customer survey widget interactive demo](docs/assets/widget-demo.gif)

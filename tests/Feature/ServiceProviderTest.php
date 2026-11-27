@@ -46,3 +46,11 @@ it('registers the publishable starter stylesheet under simple-surveys-styles tag
         ->and(array_values($paths)[0])->toBe(resource_path('css/simple-surveys.css'))
         ->and(is_file(array_key_first($paths)))->toBeTrue();
 });
+
+it('registers the consolidated publishable migration under simple-surveys-migrations tag', function (): void {
+    $paths = ServiceProvider::pathsToPublish(SimpleSurveysServiceProvider::class, 'simple-surveys-migrations');
+
+    expect($paths)->toHaveCount(1)
+        ->and(array_key_first($paths))->toEndWith('create_simple_surveys_tables.php.stub')
+        ->and(is_file((string) array_key_first($paths)))->toBeTrue();
+});

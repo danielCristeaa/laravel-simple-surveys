@@ -28,6 +28,9 @@ return new class extends Migration
         /** @var string $opensTable */
         $opensTable = config('simple-surveys.tables.opens', 'simple_survey_opens');
 
+        /** @var string $impressionsTable */
+        $impressionsTable = config('simple-surveys.tables.impressions', 'simple_survey_impressions');
+
         /** @var string $keyType */
         $keyType = config('simple-surveys.respondent_key_type', 'id');
 
@@ -42,6 +45,7 @@ return new class extends Migration
             $table->timestamp('ends_at')->nullable();
             $table->boolean('dismissible')->default(true);
             $table->integer('priority')->default(0);
+            $table->json('appearance')->nullable();
             $table->timestamps();
         });
 
@@ -105,6 +109,8 @@ return new class extends Migration
             };
 
             $table->timestamp('dismissed_at');
+            $table->string('source', 32)->nullable();
+            $table->unsignedInteger('dismiss_count')->default(1);
             $table->timestamps();
 
             $table->unique(
@@ -133,10 +139,32 @@ return new class extends Migration
                 'lss_open_respondent_unique',
             );
         });
+
+        Schema::create($impressionsTable, function (Blueprint $table) use ($surveysTable, $keyType): void {
+            $table->id();
+            $table->foreignId('survey_id')->constrained($surveysTable)->cascadeOnDelete();
+
+            match ($keyType) {
+                'uuid' => $table->uuidMorphs('respondent'),
+                'ulid' => $table->ulidMorphs('respondent'),
+                default => $table->morphs('respondent'),
+            };
+
+            $table->timestamp('first_seen_at');
+            $table->timestamps();
+
+            $table->unique(
+                ['survey_id', 'respondent_type', 'respondent_id'],
+                'lss_impression_respondent_unique',
+            );
+        });
     }
 
     public function down(): void
     {
+        /** @var string $impressionsTable */
+        $impressionsTable = config('simple-surveys.tables.impressions', 'simple_survey_impressions');
+
         /** @var string $opensTable */
         $opensTable = config('simple-surveys.tables.opens', 'simple_survey_opens');
 
@@ -155,6 +183,7 @@ return new class extends Migration
         /** @var string $surveysTable */
         $surveysTable = config('simple-surveys.tables.surveys', 'simple_surveys');
 
+        Schema::dropIfExists($impressionsTable);
         Schema::dropIfExists($opensTable);
         Schema::dropIfExists($dismissalsTable);
         Schema::dropIfExists($answersTable);

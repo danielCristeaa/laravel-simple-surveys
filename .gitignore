@@ -9,3 +9,4 @@ composer.lock
 *.log
 PLAN.md
 AGENTS.md
+SANDBOX_TEST_PLAN.md

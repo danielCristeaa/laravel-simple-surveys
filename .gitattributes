@@ -4,8 +4,10 @@
 /.gitattributes export-ignore
 /.gitignore export-ignore
 /AGENTS.md export-ignore
+/CONTRIBUTING.md export-ignore
 /PLAN.md export-ignore
 /SANDBOX_TEST_PLAN.md export-ignore
+/SECURITY.md export-ignore
 /docs export-ignore
 /phpstan.neon.dist export-ignore
 /phpunit.xml.dist export-ignore

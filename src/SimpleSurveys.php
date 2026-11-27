@@ -26,8 +26,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class SimpleSurveys
 {
-    public const VERSION = '0.1.0';
-
     public function __construct(
         private readonly SurveyRegistry $registry,
         private readonly SurveyEligibilityResolver $eligibility,

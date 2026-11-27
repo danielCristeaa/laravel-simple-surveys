@@ -9,6 +9,10 @@
         "eloquent"
     ],
     "homepage": "https://github.com/danielCristeaa/laravel-simple-surveys",
+    "support": {
+        "issues": "https://github.com/danielCristeaa/laravel-simple-surveys/issues",
+        "source": "https://github.com/danielCristeaa/laravel-simple-surveys"
+    },
     "license": "MIT",
     "authors": [
         {
@@ -32,8 +36,7 @@
     },
     "autoload": {
         "psr-4": {
-            "DanielCristea\\SimpleSurveys\\": "src/",
-            "DanielCristea\\SimpleSurveys\\Database\\Factories\\": "database/factories/"
+            "DanielCristea\\SimpleSurveys\\": "src/"
         }
     },
     "autoload-dev": {
