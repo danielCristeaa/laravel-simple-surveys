@@ -132,7 +132,7 @@ final class SurveyResultsController
         }
 
         if ($results['responses'] !== null) {
-            $results['responses']->withQueryString();
+            $results['responses']->appends($request->query());
         }
 
         /** @var view-string $view */
